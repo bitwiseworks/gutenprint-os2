@@ -51,7 +51,7 @@ xml-stamp: $(pkgxmldata_DATA) escp2/xml-stamp Makefile.am
 all-local: xmli18n-tmp.h xml-stamp
 
 
-xmli18n-tmp.h: xml-stamp extract-strings
+xmli18n-tmp.h: xml-stamp extract-strings$(EXEEXT)
 	-rm -f $@ $@.tmp
 	./extract-strings `cat xml-stamp | sed -e 's;^;$(srcdir)/;'` > $@.tmp
 	mv $@.tmp $@

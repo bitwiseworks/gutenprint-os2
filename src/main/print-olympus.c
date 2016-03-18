@@ -6273,7 +6273,7 @@ dyesub_do_print(stp_vars_t *v, stp_image_t *image)
   }
 
   if (pv.bytes_per_ink_channel > 1) {
-#if defined(__LITTLE_ENDIAN) || defined(__LITTLE_ENDIAN__)
+#if defined(__LITTLE_ENDIAN) || defined(__LITTLE_ENDIAN__) || BYTE_ORDER == _LITTLE_ENDIAN
     pv.byteswap = dyesub_feature(caps, DYESUB_FEATURE_BIGENDIAN);
 #elif defined (__BIG_ENDIAN) || defined(__BIG_ENDIAN__)
     pv.byteswap = !dyesub_feature(caps, DYESUB_FEATURE_BIGENDIAN);
