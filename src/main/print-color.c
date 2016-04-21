@@ -1379,7 +1379,11 @@ stpi_dump_lut_to_file(stp_vars_t *v, const char *dump_file)
   FILE *fp;
   if (!dump_file)
     return;
+#ifdef __OS2
+  fp = fopen(dump_file, "wb");
+#else
   fp = fopen(dump_file, "w");
+#endif
   if (fp)
     {    
       stp_dprintf(STP_DBG_LUT, v, "Dumping LUT to %s\n", dump_file);

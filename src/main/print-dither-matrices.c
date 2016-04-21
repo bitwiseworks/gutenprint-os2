@@ -626,7 +626,11 @@ stpi_dither_array_create_from_file(const char* file, int x, int y)
   stp_mxml_node_t *doc;
   stp_array_t *ret = NULL;
 
+#ifdef __OS2__
+  FILE *fp = fopen(file, "rb");
+#else
   FILE *fp = fopen(file, "r");
+#endif
   if (!fp)
     {
       stp_erprintf("stp_curve_create_from_file: unable to open %s: %s\n",

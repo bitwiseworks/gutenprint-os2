@@ -41,6 +41,10 @@
 #include <signal.h>
 #include <sys/wait.h>
 
+#ifdef __OS2__
+#define pipe(A) socketpair(AF_UNIX, SOCK_STREAM,0, A)
+#endif
+
 typedef enum
 {
   PRINTERS_NONE,
@@ -1009,7 +1013,11 @@ stpui_printrc_load(void)
 
   stpui_get_system_printers();
 
+#ifdef __OS2__
+  if ((fp = fopen(filename, "rb")) != NULL)
+#else
   if ((fp = fopen(filename, "r")) != NULL)
+#endif
     {
       (void) memset(line, 0, 1024);
       if (fgets(line, sizeof(line), fp) != NULL)
@@ -1066,7 +1074,11 @@ stpui_printrc_save(void)
   const char *filename = stpui_get_printrc_file();
 
 
+#ifdef __OS2__
+  if ((fp = fopen(filename, "wb")) != NULL)
+#else
   if ((fp = fopen(filename, "w")) != NULL)
+#endif
     {
       /*
        * Write the contents of the printer list...

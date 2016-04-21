@@ -1016,7 +1016,11 @@ static int get_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char 
 
 	/* Open file and write it out */
 	{
+#ifdef __OS2__
+		int tc_fd = open(fname, O_WRONLY|O_CREAT|O_BINARY, S_IRUSR|S_IWUSR);
+#else
 		int tc_fd = open(fname, O_WRONLY|O_CREAT, S_IRUSR|S_IWUSR);
+#endif
 		if (tc_fd < 0) {
 			ret = tc_fd;
 			goto done;
@@ -1055,7 +1059,11 @@ static int set_tonecurve(struct shinkos1245_ctx *ctx, int type, int table, char 
 
 	/* Open file and read it in */
 	{
+#ifdef __OS2__
+		int tc_fd = open(fname, O_RDONLY | O_BINARY);
+#else
 		int tc_fd = open(fname, O_RDONLY);
+#endif
 		if (tc_fd < 0) {
 			ret = tc_fd;
 			goto done;

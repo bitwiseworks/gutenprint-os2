@@ -861,7 +861,11 @@ save_options(const char *save_name, const stp_vars_t *v)
       stp_vars_destroy(c);
       return;
     }
+#ifdef __OS2__
+  f_options = fopen(save_name, "wb");
+#else
   f_options = fopen(save_name, "w");
+#endif
   if (!f_options)
     {
       stp_parameter_list_destroy(params);
@@ -1039,7 +1043,11 @@ save_options(const char *save_name, const stp_vars_t *v)
 static stp_vars_t *
 load_options(const char *load_name)
 {
+#ifdef __OS2__
+  FILE *f_options = fopen(load_name, "rb");
+#else
   FILE *f_options = fopen(load_name, "r");
+#endif
   if (f_options)
     {
       stp_vars_t *settings = NULL;
@@ -1280,7 +1288,11 @@ main(int  argc,				/* I - Number of command-line arguments */
 
   if (argc == 7)
   {
+#ifdef __OS2__
+    if ((fd = open(argv[6], O_RDONLY | O_BINARY)) == -1)
+#else
     if ((fd = open(argv[6], O_RDONLY)) == -1)
+#endif
     {
       stp_i18n_printf(po, _("ERROR: Gutenprint was unable to open raster file "
                             "\"%s\" - %s"), argv[6], strerror(errno));

@@ -76,7 +76,11 @@ main(int  argc,		/* I - Number of command-line arguments */
 
   if (argc == 7)
   {
+#ifdef __OS2__
+    if ((fp = fopen(argv[6], "rb")) == NULL)
+#else
     if ((fp = fopen(argv[6], "r")) == NULL)
+#endif
     {
       perror("ERROR: Unable to open command file - ");
       return (1);

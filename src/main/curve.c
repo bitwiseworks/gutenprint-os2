@@ -1865,7 +1865,11 @@ stp_curve_create_from_file(const char* file)
 {
   stp_curve_t *curve = NULL;
   stp_mxml_node_t *doc;
+#ifdef __OS2__
+  FILE *fp = fopen(file, "rb");
+#else
   FILE *fp = fopen(file, "r");
+#endif
   if (!fp)
     {
       stp_deprintf(STP_DBG_CURVE_ERRORS,

@@ -850,17 +850,30 @@ int main(int argc, char *argv[])
 	write_fd = stdout;
     }
     else if(argc == 2){
+#ifdef __OS2__
+	read_fd = fopen(argv[1],"rb");
+#else
 	read_fd = fopen(argv[1],"r");
+#endif
 	write_fd = stdout;
     }
     else {
 	if(*argv[1] == '-'){
 	    read_fd = stdin;
+#ifdef __OS2__
+	    write_fd = fopen(argv[2],"wb");
+#else
 	    write_fd = fopen(argv[2],"w");
+#endif
 	}
 	else {
+#ifdef __OS2__
+	    read_fd = fopen(argv[1],"rb");
+	    write_fd = fopen(argv[2],"wb");
+#else
 	    read_fd = fopen(argv[1],"r");
 	    write_fd = fopen(argv[2],"w");
+#endif
 	}
     }
 

@@ -105,7 +105,11 @@ stp_mxmlLoadFromFile(stp_mxml_node_t *top,	/* I - Top node */
 		     stp_mxml_type_t (*cb)(stp_mxml_node_t *))
 					/* I - Callback function or STP_MXML_NO_CALLBACK */
 {
+#ifdef __OS2__
+  FILE *fp = fopen(file, "rb");
+#else
   FILE *fp = fopen(file, "r");
+#endif
   stp_mxml_node_t *doc;
   if (! fp)
     return NULL;
@@ -236,7 +240,11 @@ stp_mxmlSaveToFile(stp_mxml_node_t *node,	/* I - Node to write */
 		   int             (*cb)(stp_mxml_node_t *, int))
 					/* I - Whitespace callback or STP_MXML_NO_CALLBACK */
 {
+#ifdef __OS2__
+  FILE *fp = fopen(file, "wb");
+#else
   FILE *fp = fopen(file, "w");
+#endif
   int answer;
   int status;
   if (!fp)

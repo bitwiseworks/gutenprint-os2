@@ -830,7 +830,11 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 		char buf[64];
 		FILE *f;
 		snprintf(buf, sizeof(buf), "/tmp/%s-last", ctx->serno);
+#ifdef __OS2__
+		f = fopen(buf, "rb");
+#else
 		f = fopen(buf, "r");
+#endif
 		if (f) {
 			fscanf(f, "%d", &ctx->last_matte);
 			fclose(f);
@@ -852,7 +856,11 @@ static int dnpds40_main_loop(void *vctx, int copies) {
 		char buf[64];
 		FILE *f;
 		snprintf(buf, sizeof(buf), "/tmp/%s-last", ctx->serno);
+#ifdef __OS2__
+		f = fopen(buf, "wb");
+#else
 		f = fopen(buf, "w");
+#endif
 		if (f) {
 			fprintf(f, "%08d", ctx->last_matte);
 			fclose(f);

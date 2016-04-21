@@ -338,7 +338,11 @@ void save2xbm(const char *filename,char col, bitimage_t *img,
   else
     sprintf(outfilename,"%s.xbm",filename);
 
+#ifdef __OS2__
+  if (!(o= fopen(outfilename,"wb"))) {
+#else
   if (!(o= fopen(outfilename,"w"))) {
+#endif
     stp_free(outfilename);
     return;
   }
@@ -527,7 +531,11 @@ int main(int argc, char **argv)
       outfilename= argv[1];
 
     infilename= argv[1];
+#ifdef __OS2__
+    infile= fopen(infilename,"rb");
+#else
     infile= fopen(infilename,"r");
+#endif
 
     xsize=ysize=0;
 

@@ -951,7 +951,11 @@ int main (int argc, char **argv)
 
 	/* Open file if not STDIN */
 	if (strcmp("-", fname)) {
+#ifdef __OS2__
+		data_fd = open(fname, O_RDONLY | O_BINARY);
+#else
 		data_fd = open(fname, O_RDONLY);
+#endif
 		if (data_fd < 0) {
 			perror("ERROR:Can't open input file");
 			exit(1);

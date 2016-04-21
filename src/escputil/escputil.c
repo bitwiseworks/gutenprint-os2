@@ -781,7 +781,11 @@ open_raw_device(void)
       exit(1);
     }
 
+#ifdef __OS2__
+  fd = open(raw_device, O_RDWR|O_BINARY, 0666);
+#else
   fd = open(raw_device, O_RDWR, 0666);
+#endif
   if (fd == -1)
     {
       fprintf(stderr, _("Cannot open %s read/write: %s\n"), raw_device,

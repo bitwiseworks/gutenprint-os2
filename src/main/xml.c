@@ -253,7 +253,11 @@ stp_xml_parse_file(const char *file) /* File to parse */
 
   stp_deprintf(STP_DBG_XML, "stp_xml_parse_file: reading  `%s'...\n", file);
 
+#ifdef __OS2__
+  fp = fopen(file, "rb");
+#else
   fp = fopen(file, "r");
+#endif
   if (!fp)
     {
       stp_erprintf("stp_xml_parse_file: unable to open %s: %s\n", file,

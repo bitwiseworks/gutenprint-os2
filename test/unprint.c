@@ -1714,7 +1714,11 @@ main(int argc,char *argv[])
 	{
 	  if (fp_r)
 	    {
+#ifdef __OS2__
+	      if (!(fp_w = fopen(argv[arg],"wb")))
+#else
 	      if (!(fp_w = fopen(argv[arg],"w")))
+#endif
 		{
 		  perror("Error opening ouput file");
 		  exit(-1);
@@ -1722,7 +1726,11 @@ main(int argc,char *argv[])
 	    }
 	  else
 	    {
+#ifdef __OS2__
+	      if (!(fp_r = fopen(argv[arg],"rb")))
+#else
 	      if (!(fp_r = fopen(argv[arg],"r")))
+#endif
 		{
 		  perror("Error opening input file");
 		  exit(-1);

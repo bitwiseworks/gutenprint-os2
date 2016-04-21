@@ -493,7 +493,11 @@ static int kodak605_set_tonecurve(struct kodak605_ctx *ctx, char *fname)
 	INFO("Set Tone Curve from '%s'\n", fname);
 
 	/* Read in file */
+#ifdef __OS2
+	int tc_fd = open(fname, O_RDONLY | O_BINARY);
+#else
 	int tc_fd = open(fname, O_RDONLY);
+#endif
 	if (tc_fd < 0) {
 		ret = -1;
 		goto done;
