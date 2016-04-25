@@ -57,9 +57,9 @@ my $micro_version = "@GUTENPRINT_VERSION@";
 my $use_static_ppd = "@BUILD_CUPS_PPDS@";
 my $file_version = '"@VERSION@"$';
 
-my $system_ppd_dir = '\'@cups_conf_serverroot@/ppd\'';# Location of in-use CUPS PPDs
+my $system_ppd_dir = '@cups_conf_serverroot@/ppd';# Location of in-use CUPS PPDs
 my $ppd_dir = $system_ppd_dir; # Location of in-use CUPS PPDs
-my $ppd_root_dir = '\'@cups_conf_datadir@/model\'';
+my $ppd_root_dir = '@cups_conf_datadir@/model';
 my $ppd_base_dir = "$ppd_root_dir/gutenprint/$version"; # Available PPDs
 my $ppd_out_dir = "";		# By default output into source directory
 my $gzext = ".gz";
@@ -69,7 +69,7 @@ my $failed_ppd_count = 0;
 my $exit_after_parse_args = 0;
 my @languages = qw(Global C @ALL_LINGUAS@);
 
-my $serverdir = '\'@cups_conf_serverbin@\'';
+my $serverdir = '@cups_conf_serverbin@';
 my $driver_bin = "$serverdir/driver/gutenprint.$version";
 my $driver_version = "";
 my $server_multicat = 0;
@@ -409,6 +409,7 @@ sub get_ppd_fh($$$$$) {
 		    my ($pid) = open2(*Reader, *Writer, "$driver_bin org.gutenprint.multicat");
 		    $server_multicat_initialized = 1;
 		}
+		binmode Writer;
 		print Writer "$url\n";
 		return ($new_ppd_filename, \*Reader);
 	    }
@@ -742,6 +743,7 @@ default_loop:
 	warn "Can't create $tmpnew: $!\n";
 	return 0;
     }
+    binmode NEWPPD;
     print NEWPPD $source_data;
     if (! close NEWPPD) {
 	warn "Can't write to $tmpnew: $!\n";
