@@ -70,7 +70,7 @@ my $exit_after_parse_args = 0;
 my @languages = qw(Global C @ALL_LINGUAS@);
 
 my $serverdir = '@cups_conf_serverbin@';
-my $driver_bin = "$serverdir/driver/gutenprint.$version";
+my $driver_bin = "$serverdir/driver/gutenprint.$version.exe";
 my $driver_version = "";
 my $server_multicat = 0;
 my $server_multicat_initialized = 0;
