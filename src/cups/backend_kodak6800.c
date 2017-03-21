@@ -733,7 +733,11 @@ static int kodak6800_get_tonecurve(struct kodak6800_ctx *ctx, char *fname)
 
 	/* Open file and write it out */
 	{
+#ifdef __OS2__
+		int tc_fd = open(fname, O_WRONLY|O_CREAT|O_BINARY, S_IRUSR|S_IWUSR);
+#else
 		int tc_fd = open(fname, O_WRONLY|O_CREAT, S_IRUSR|S_IWUSR);
+#endif
 		if (tc_fd < 0) {
 			ret = 4;
 			goto done;
@@ -772,7 +776,11 @@ static int kodak6800_set_tonecurve(struct kodak6800_ctx *ctx, char *fname)
 	INFO("Set Tone Curve from '%s'\n", fname);
 
 	/* Read in file */
+#ifdef __OS2__
+	int tc_fd = open(fname, O_RDONLY | O_BINARY);
+#else
 	int tc_fd = open(fname, O_RDONLY);
+#endif
 	if (tc_fd < 0) {
 		ret = -1;
 		goto done;

@@ -23,6 +23,10 @@ include $(top_srcdir)/scripts/global.mk
 
 ## Variables
 
+VENDOR ?=community
+BUILD_INFO=\#\#1\#\# $(shell date +'%d %b %Y %H:%M:%S')     $(shell uname -n)
+BUILDLEVEL_INFO=@\#$(VENDOR):$(GUTENPRINT_VERSION)\#@$(BUILD_INFO)::::$(GUTENPRINT_MICRO_VERSION)::
+
 pkgconfigdatadir = $(libdir)/pkgconfig
 pkgmoduledir = $(pkglibdir)/@GUTENPRINT_MAJOR_VERSION@.@GUTENPRINT_MINOR_VERSION@/modules
 
@@ -157,6 +161,7 @@ libgutenprint_la_LIBADD = $(GUTENPRINT_LIBDEPS)
 # Uncomment to build a versioned library
 libgutenprint_version = -version-info $(GUTENPRINT_CURRENT_INTERFACE):$(GUTENPRINT_INTERFACE_AGE):$(GUTENPRINT_BINARY_AGE)
 libgutenprint_la_LDFLAGS = $(libgutenprint_version) \
+	-buildlevel '$(BUILDLEVEL_INFO)'	\
 	-rpath $(libdir) -no-undefined
 # libtool currently needs a patch for symbol export to work correctly
 # using a linker version script.

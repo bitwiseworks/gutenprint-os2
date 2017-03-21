@@ -973,7 +973,11 @@ repeat:
 			int fd;
 			uint32_t j;
 			DEBUG("Reading %d bytes of matte data from disk (%d/%d)\n", ctx->matte, ctx->cols, LAMINATE_STRIDE);
+#ifdef __OS2__
+			fd = open(ctx->laminatefname, O_RDONLY | O_BINARY);
+#else
 			fd = open(ctx->laminatefname, O_RDONLY);
+#endif
 			if (fd < 0) {
 				ERROR("Unable to open matte lamination data file '%s'\n", ctx->laminatefname);
 				return CUPS_BACKEND_CANCEL;

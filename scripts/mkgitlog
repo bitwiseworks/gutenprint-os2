@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/@unixroot/usr/bin/perl
 
 use Getopt::Long;
 
