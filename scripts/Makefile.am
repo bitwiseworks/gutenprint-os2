@@ -12,8 +12,7 @@
 ## GNU General Public License for more details.
 ##
 ## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
-## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+## along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ## Process this file with automake to produce Makefile.in.
 
@@ -25,14 +24,46 @@ include $(top_srcdir)/scripts/global.mk
 ## Variables
 
 # The autotools-installed scripts /should/ be automatically distributed.
+# build-release needs to be in the tarball because it's run during
+# make distcheck, although it's not intended to be used outside
+# of the development sandbox
 EXTRA_DIST = \
 	autogen.sh \
+	build-release \
+	count-cpus \
 	global.mk \
-	mkgitlog
+	gversion \
+	snapstamp \
+	test-gversion \
+	mkgitlog \
+	wzpaq
 
+noinst_SCRIPTS= \
+	build-release \
+	gversion \
+	snapstamp \
+	test-gversion \
+	mkgitlog \
+	wzpaq
 
 ## Clean
 
 MAINTAINERCLEANFILES = \
 	Makefile.in \
-	mkgitlog
+	compile \
+	config.guess \
+	config.rpath \
+	config.sub \
+	depcomp \
+	gversion \
+	install-sh \
+	ltconfig \
+	ltmain.sh \
+	mdate-sh \
+	missing \
+	mkgitlog \
+	mkinstalldirs \
+	test-driver \
+	test-gversion \
+	wzpaq \
+	ylwrap

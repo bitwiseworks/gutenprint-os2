@@ -15,8 +15,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  * Revision History:
  *
@@ -33,6 +32,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "dither-impl.h"
+#include <sys/param.h>
 
 #ifdef __GNUC__
 #define inline __inline__
@@ -523,7 +523,7 @@ stp_xml_dither_cache_set(int x, int y, const char *filename)
 static int
 stp_xml_process_dither_matrix(stp_mxml_node_t *dm,     /* The dither matrix node */
 			       const char *file)  /* Source file */
-			       
+
 {
   const char *value;
   int x = -1;
@@ -580,7 +580,7 @@ stpi_dither_array_create_from_xmltree(stp_mxml_node_t *dm, int x, int y) /* Dith
     }
 
   /* Now read in the array */
-  child = stp_mxmlFindElement(dm, dm, "array", NULL, NULL, STP_MXML_DESCEND);
+  child = stp_xml_get_node(dm, "array", NULL);
   if (child)
     return stp_array_create_from_xmltree(child);
   else
@@ -669,8 +669,8 @@ stp_xml_get_dither_array(int x, int y)
 
   if (!cachedval)
     {
-      char buf[1024];
-      (void) sprintf(buf, "dither-matrix-%dx%d.xml", x, y);
+      char buf[MAXPATHLEN+1];
+      (void) snprintf(buf, MAXPATHLEN, "dither/matrix-%dx%d.xml", x, y);
       stp_xml_parse_file_named(buf);
       cachedval = stp_xml_dither_cache_get(x, y);
       if (cachedval == NULL || cachedval->filename == NULL)
@@ -704,7 +704,7 @@ stp_find_standard_dither_array(int x_aspect, int y_aspect)
     x_aspect += 1;		/* so cheat */
   if (y_aspect == 3)
     y_aspect += 1;
-  
+
   divisor = gcd(x_aspect, y_aspect);
   x_aspect /= divisor;
   y_aspect /= divisor;

@@ -11,8 +11,7 @@
 ## GNU General Public License for more details.
 ##
 ## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
-## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+## along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ## Process this file with automake to produce Makefile.in.
 
@@ -27,25 +26,27 @@ SUBDIRS =					\
 	media					\
 	mediasizes				\
 	qualitypresets				\
+	resolutions				\
 	weaves
 
-xml-stamp: media/xml-stamp			\
-	   model/xml-stamp			\
-	   inputslots/xml-stamp			\
-	   inks/xml-stamp			\
-	   mediasizes/xml-stamp			\
-	   qualitypresets/Makefile.am		\
-	   weaves/Makefile.am			\
-	   Makefile.am
+STAMPS =					\
+	inks/xml-stamp				\
+	inputslots/xml-stamp			\
+	model/xml-stamp				\
+	media/xml-stamp				\
+	mediasizes/xml-stamp			\
+	qualitypresets/xml-stamp		\
+	resolutions/xml-stamp			\
+	weaves/xml-stamp
+
+
+xml-stamp: $(pkgxmldata_DATA) $(STAMPS) Makefile.am
 	-rm -f $@ $@.tmp
 	touch $@.tmp
-	sed 's;^;media/;' media/xml-stamp >> $@.tmp
-	sed 's;^;model/;' model/xml-stamp >> $@.tmp
-	sed 's;^;inputslots/;' inputslots/xml-stamp >> $@.tmp
-	sed 's;^;inks/;' inks/xml-stamp >> $@.tmp
-	sed 's;^;mediasizes/;' mediasizes/xml-stamp >> $@.tmp
-	sed 's;^;weaves/;' weaves/xml-stamp >> $@.tmp
-	sed 's;^;qualitypresets/;' qualitypresets/xml-stamp >> $@.tmp
+	for dir in $(SUBDIRS) ; do \
+	  sed "s;^;$$dir/;" $${dir}/xml-stamp >> $@.tmp ; \
+	done
+	for f in $(pkgxmldata_DATA) ; do echo $$f >> $@.tmp; done
 	mv $@.tmp $@
 
 all-local: xml-stamp

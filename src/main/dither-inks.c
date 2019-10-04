@@ -16,8 +16,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  * Revision History:
  *
@@ -99,7 +98,7 @@ stpi_dither_channel_destroy(stpi_dither_channel_t *channel)
   STP_SAFE_FREE(channel->ranges);
   stp_dither_matrix_destroy(&(channel->pick));
   stp_dither_matrix_destroy(&(channel->dithermat));
-}  
+}
 
 static void
 initialize_channel(stp_vars_t *v, int channel, int subchannel)
@@ -130,7 +129,7 @@ insert_subchannel(stp_vars_t *v, stpi_dither_t *d, int channel, int subchannel)
   stpi_dither_channel_t *nc =
     stp_malloc(sizeof(stpi_dither_channel_t) *
 	       (d->total_channel_count + increment));
-      
+
   if (d->channel)
     {
       /*

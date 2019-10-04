@@ -16,8 +16,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -236,7 +235,7 @@ Image_get_row(stp_image_t *image, unsigned char *data, size_t byte_limit,
 	  break;
 	}
       im->initialized = 1;
-    }    
+    }
   if (im->tmp)
     inter = im->tmp;
   else

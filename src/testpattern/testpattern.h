@@ -15,8 +15,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -82,6 +81,7 @@ extern size_mode_t global_size_mode;
 extern double global_hsize;
 extern double global_vsize;
 extern int global_noblackline;
+extern int global_colorline;
 extern const char *global_image_type;
 extern int global_color_model;
 extern int global_bit_depth;
@@ -89,6 +89,7 @@ extern int global_channel_depth;
 extern int global_did_something;
 extern int global_invert_data;
 extern int global_noscale;
+extern int global_round_size;
 extern char *global_output;
 extern int global_quiet;
 extern FILE *output;
@@ -108,5 +109,3 @@ typedef struct yylv {
 #define YYSTYPE_IS_DECLARED 1
 
 #include "testpatterny.h"
-
-

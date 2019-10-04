@@ -1,7 +1,7 @@
-/*
+ /*
  *   Shinko/Sinfonia CHC-S2145 CUPS backend -- libusb-1.0 version
  *
- *   (c) 2013-2016 Solomon Peachy <pizza@shaftnet.org>
+ *   (c) 2013-2019 Solomon Peachy <pizza@shaftnet.org>
  *
  *   Development of this backend was sponsored by:
  *
@@ -22,10 +22,11 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  *          [http://www.gnu.org/licenses/gpl-2.0.html]
+ *
+ *   SPDX-License-Identifier: GPL-2.0+
  *
  */
 
@@ -42,6 +43,7 @@
 #define BACKEND shinkos2145_backend
 
 #include "backend_common.h"
+#include "backend_sinfonia.h"
 
 enum {
 	S_IDLE = 0,
@@ -50,175 +52,25 @@ enum {
 	S_FINISHED,
 };
 
-/* Structure of printjob header.  All fields are LITTLE ENDIAN */
-struct s2145_printjob_hdr {
-	uint32_t len1;   /* Fixed at 0x10 */
-	uint32_t model;  /* Equal to the printer model (eg '2145' or '1245' decimal) */
-	uint32_t unk2;
-	uint32_t unk3;   /* Fixed at 0x01 */
-
-	uint32_t len2;   /* Fixed at 0x64 */
-	uint32_t unk5;
-	uint32_t media;
-	uint32_t unk6;
-
-	uint32_t method;
-	uint32_t mode;
-	uint32_t unk7;
-	uint32_t unk8;
-
-	uint32_t unk9;
-	uint32_t columns;
-	uint32_t rows;
-	uint32_t copies;
-
-	uint32_t unk10;
-	uint32_t unk11;
-	uint32_t unk12;
-	uint32_t unk13;
-
-	uint32_t unk14;
-	uint32_t unk15;
-	uint32_t dpi; /* Fixed at '300' (decimal) */
-	uint32_t unk16;
-
-	uint32_t unk17;
-	uint32_t unk18;
-	uint32_t unk19;
-	uint32_t unk20;
-
-	uint32_t unk21;
-} __attribute__((packed));
-
-/* Private data stucture */
-struct shinkos2145_ctx {
-	struct libusb_device_handle *dev;
-	uint8_t endp_up;
-	uint8_t endp_down;
-	int type;
-
-	uint8_t jobid;
-
-	struct s2145_printjob_hdr hdr;
-
-	uint8_t *databuf;
-	int datalen;
-
-	uint16_t last_donor;
-	uint16_t last_remain;
-	uint16_t media_prints;
-};
-
 /* Structs for printer */
-struct s2145_cmd_hdr {
-	uint16_t cmd;
-	uint16_t len;  /* Not including this header */
-} __attribute__((packed));
-
-#define S2145_CMD_STATUS    0x0001
-#define S2145_CMD_MEDIAINFO 0x0002
-#define S2145_CMD_MODELNAME 0x0003
-#define S2145_CMD_ERRORLOG  0x0004
-#define S2145_CMD_PRINTJOB  0x4001
-#define S2145_CMD_CANCELJOB 0x4002
-#define S2145_CMD_FLASHLED  0x4003
-#define S2145_CMD_RESET     0x4004
-#define S2145_CMD_READTONE  0x4005
-#define S2145_CMD_BUTTON    0x4006
-#define S2145_CMD_GETUNIQUE 0x8003
-#define S2145_CMD_FWINFO    0xC003
-#define S2145_CMD_UPDATE    0xC004
-#define S2145_CMD_SETUNIQUE 0xC007
-
-static char *cmd_names(uint16_t v) {
-	switch (le16_to_cpu(v)) {
-	case S2145_CMD_STATUS:
-		return "Get Status";
-	case S2145_CMD_MEDIAINFO:
-		return "Get Media Info";
-	case S2145_CMD_MODELNAME:
-		return "Get Model Name";
-	case S2145_CMD_ERRORLOG:
-		return "Get Error Log";
-	case S2145_CMD_PRINTJOB:
-		return "Print";
-	case S2145_CMD_CANCELJOB:
-		return "Cancel Print";
-	case S2145_CMD_FLASHLED:
-		return "Flash LEDs";
-	case S2145_CMD_RESET:
-		return "Reset";
-	case S2145_CMD_READTONE:
-		return "Read Tone Curve";
-	case S2145_CMD_BUTTON:
-		return "Button Enable";
-	case S2145_CMD_GETUNIQUE:
-		return "Get Unique String";
-	case S2145_CMD_FWINFO:
-		return "Get Firmware Info";
-	case S2145_CMD_UPDATE:
-		return "Update";
-	case S2145_CMD_SETUNIQUE:
-		return "Set Unique String";
-	default:
-		return "Unknown Command";
-	}
-};
-
-struct s2145_print_cmd {
-	struct s2145_cmd_hdr hdr;
-	uint8_t  id;
-	uint16_t count;
-	uint16_t columns;
-	uint16_t rows;
-	uint8_t  media;
-	uint8_t  mode;
-	uint8_t  method;
-} __attribute__((packed));
-
-#define PRINT_MEDIA_4x6    0x00
-#define PRINT_MEDIA_5x3_5  0x01
-#define PRINT_MEDIA_5x7    0x03
-#define PRINT_MEDIA_6x9    0x05
-#define PRINT_MEDIA_6x8    0x06
-#define PRINT_MEDIA_2x6    0x07
-
-static char *print_sizes (uint8_t v) {
-	switch (v) {
-	case PRINT_MEDIA_4x6:
-		return "4x6";
-	case PRINT_MEDIA_5x3_5:
-		return "5x3.5";
-	case PRINT_MEDIA_5x7:
-		return "5x7";
-	case PRINT_MEDIA_6x9:
-		return "6x9";
-	case PRINT_MEDIA_6x8:
-		return "6x8";
-	case PRINT_MEDIA_2x6:
-		return "2x6";
-	default:
-		return "Unknown";
-	}
-}
-
 static int print_counts (uint8_t v) {
 	switch (v) {
-	case PRINT_MEDIA_4x6:
+	case CODE_4x6:
 		return 700;
-	case PRINT_MEDIA_5x3_5:
+	case CODE_3_5x5:
 		return 800;
-	case PRINT_MEDIA_5x7:
+	case CODE_5x7:
 		return 400;
-	case PRINT_MEDIA_6x9:
+	case CODE_6x9:
 		return 310;
-	case PRINT_MEDIA_6x8:
+	case CODE_6x8:
 		return 350;
 	default:
 		return 700;
 	}
 }
 
+#if 0
 #define PRINT_MODE_DEFAULT      0x01
 #define PRINT_MODE_STD_GLOSSY   0x02
 #define PRINT_MODE_FINE_GLOSSY  0x03
@@ -227,8 +79,7 @@ static int print_counts (uint8_t v) {
 #define PRINT_MODE_STD_EGLOSSY  0x06
 #define PRINT_MODE_FINE_EGLOSSY 0x07
 
-#if 0
-static char *print_modes(uint8_t v) {
+static char *s2145_print_modes(uint8_t v) {
 	switch (v) {
 	case PRINT_MODE_DEFAULT:
 		return "Default";
@@ -250,30 +101,8 @@ static char *print_modes(uint8_t v) {
 }
 #endif
 
-#define PRINT_METHOD_STD     0x00
-#define PRINT_METHOD_4x6_2UP 0x02
-#define PRINT_METHOD_2x6_2UP 0x04
-
-static char *print_methods (uint8_t v) { 
-	switch (v) {
-	case PRINT_METHOD_STD:
-		return "Standard";
-	case PRINT_METHOD_4x6_2UP:
-		return "4x6 2up";
-	case PRINT_METHOD_2x6_2UP:
-		return "2x6 2up";
-	default:
-		return "Unknown";
-	}
-}
-
-struct s2145_cancel_cmd {
-	struct s2145_cmd_hdr hdr;
-	uint8_t  id;
-} __attribute__((packed));
-
 struct s2145_reset_cmd {
-	struct s2145_cmd_hdr hdr;
+	struct sinfonia_cmd_hdr hdr;
 	uint8_t  target;
 } __attribute__((packed));
 
@@ -281,22 +110,17 @@ struct s2145_reset_cmd {
 #define RESET_USER_CURVE    0x04
 
 struct s2145_readtone_cmd {
-	struct s2145_cmd_hdr hdr;
+	struct sinfonia_cmd_hdr hdr;
 	uint8_t  curveid;
 } __attribute__((packed));
 
 struct s2145_button_cmd {
-	struct s2145_cmd_hdr hdr;
+	struct sinfonia_cmd_hdr hdr;
 	uint8_t  enabled;
 } __attribute__((packed));
 
 #define BUTTON_ENABLED  0x01
 #define BUTTON_DISABLED 0x00
-
-struct s2145_fwinfo_cmd {
-	struct s2145_cmd_hdr hdr;
-	uint8_t  target;
-} __attribute__((packed));
 
 #define FWINFO_TARGET_MAIN_BOOT 0x01
 #define FWINFO_TARGET_MAIN_APP  0x02
@@ -320,7 +144,7 @@ static char *fwinfo_targets (uint8_t v) {
 		return "USB Boot ";
 	case FWINFO_TARGET_USB_APP:
 		return "USB App  ";
-	case FWINFO_TARGET_TABLES: 
+	case FWINFO_TARGET_TABLES:
 		return "Tables   ";
 	default:
 		return "Unknown  ";
@@ -328,61 +152,19 @@ static char *fwinfo_targets (uint8_t v) {
 }
 
 struct s2145_update_cmd {
-	struct s2145_cmd_hdr hdr;
+	struct sinfonia_cmd_hdr hdr;
 	uint8_t  target;
 	uint32_t reserved;
 	uint32_t size;
 } __attribute__((packed));
 
-#define UPDATE_TARGET_USER    0x03
-#define UPDATE_TARGET_CURRENT 0x04
-
-static char *update_targets (uint8_t v) {
-	switch (v) {
-	case UPDATE_TARGET_USER:
-		return "User";
-	case UPDATE_TARGET_CURRENT:
-		return "Current";
-	default:
-		return "Unknown";
-	}
-}
-
-#define UPDATE_SIZE 0x600
-/* Update is three channels, Y, M, C;
-   each is 256 entries of 11-bit data padded to 16-bits.
-   Printer expects LE data.  We use BE data on disk.
-*/
-
 struct s2145_setunique_cmd {
-	struct s2145_cmd_hdr hdr;
+	struct sinfonia_cmd_hdr hdr;
 	uint8_t  len;
 	uint8_t  data[23];  /* Not necessarily all used. */
 } __attribute__((packed));
 
-struct s2145_status_hdr {
-	uint8_t  result;
-	uint8_t  error;
-	uint8_t  printer_major;
-	uint8_t  printer_minor;
-	uint8_t  reserved[3];
-	uint8_t  status;
-	uint16_t payload_len;
-} __attribute__((packed));
-
-#define RESULT_SUCCESS 0x01
-#define RESULT_FAIL    0x02
-
-#define ERROR_NONE              0x00
-#define ERROR_INVALID_PARAM     0x01
-#define ERROR_MAIN_APP_INACTIVE 0x02
-#define ERROR_COMMS_TIMEOUT     0x03
-#define ERROR_MAINT_NEEDED      0x04
-#define ERROR_BAD_COMMAND       0x05
-#define ERROR_PRINTER           0x11
-#define ERROR_BUFFER_FULL       0x21
-
-static char *error_codes(uint8_t major, uint8_t minor)
+static const char *error_codes(uint8_t major, uint8_t minor)
 {
 	switch(major) {
 	case 0x01: /* "Controller Error" */
@@ -580,105 +362,8 @@ static char *error_codes(uint8_t major, uint8_t minor)
 	}
 }
 
-static char *error_str(uint8_t v) {
-	switch (v) {
-	case ERROR_NONE:
-		return "None";
-	case ERROR_INVALID_PARAM:
-		return "Invalid Command Parameter";
-	case ERROR_MAIN_APP_INACTIVE:
-		return "Main App Inactive";
-	case ERROR_COMMS_TIMEOUT:
-		return "Main Communication Timeout";
-	case ERROR_MAINT_NEEDED:
-		return "Maintainence Needed";
-	case ERROR_BAD_COMMAND:
-		return "Inappropriate Command";
-	case ERROR_PRINTER:
-		return "Printer Error";
-	case ERROR_BUFFER_FULL:
-		return "Buffer Full";
-	default:
-		return "Unknown";
-	}
-}
-
-#define STATUS_READY            0x00
-#define STATUS_INIT_CPU         0x31
-#define STATUS_INIT_RIBBON      0x32
-#define STATUS_INIT_PAPER       0x33
-#define STATUS_THERMAL_PROTECT  0x34
-#define STATUS_USING_PANEL      0x35
-#define STATUS_SELF_DIAG        0x36
-#define STATUS_DOWNLOADING      0x37
-
-#define STATUS_FEEDING_PAPER    0x61
-#define STATUS_PRE_HEAT         0x62
-#define STATUS_PRINT_Y          0x63
-#define STATUS_BACK_FEED_Y      0x64
-#define STATUS_PRINT_M          0x65
-#define STATUS_BACK_FEED_M      0x66
-#define STATUS_PRINT_C          0x67
-#define STATUS_BACK_FEED_C      0x68
-#define STATUS_PRINT_OP         0x69
-#define STATUS_PAPER_CUT        0x6A
-#define STATUS_PAPER_EJECT      0x6B
-#define STATUS_BACK_FEED_E      0x6C
-#define STATUS_FINISHED         0x6D
-
-static char *status_str(uint8_t v) {
-	switch (v) {
-	case STATUS_READY:
-		return "Ready";
-	case STATUS_INIT_CPU:
-		return "Initializing CPU";
-	case STATUS_INIT_RIBBON:
-		return "Initializing Ribbon";
-	case STATUS_INIT_PAPER:
-		return "Loading Paper";
-	case STATUS_THERMAL_PROTECT:
-		return "Thermal Protection";
-	case STATUS_USING_PANEL:
-		return "Using Operation Panel";
-	case STATUS_SELF_DIAG:
-		return "Processing Self Diagnosis";
-	case STATUS_DOWNLOADING:
-		return "Processing Download";
-	case STATUS_FEEDING_PAPER:
-		return "Feeding Paper";
-	case STATUS_PRE_HEAT:
-		return "Pre-Heating";
-	case STATUS_PRINT_Y:
-		return "Printing Yellow";
-	case STATUS_BACK_FEED_Y:
-		return "Back-Feeding - Yellow Complete";
-	case STATUS_PRINT_M:
-		return "Printing Magenta";
-	case STATUS_BACK_FEED_M:
-		return "Back-Feeding - Magenta Complete";
-	case STATUS_PRINT_C:
-		return "Printing Cyan";
-	case STATUS_BACK_FEED_C:
-		return "Back-Feeding - Cyan Complete";
-	case STATUS_PRINT_OP:
-		return "Laminating";
-	case STATUS_PAPER_CUT:
-		return "Cutting Paper";
-	case STATUS_PAPER_EJECT:
-		return "Ejecting Paper";
-	case STATUS_BACK_FEED_E:
-		return "Back-Feeding - Ejected";
-	case STATUS_FINISHED:
-		return "Print Finished";
-	case ERROR_PRINTER:
-		return "Printer Error";
-	default:
-		return "Unknown";
-	}
-}
-
 struct s2145_status_resp {
-	struct s2145_status_hdr hdr;
+	struct sinfonia_status_hdr hdr;
 	uint32_t count_lifetime;
 	uint32_t count_maint;
 	uint32_t count_paper;
@@ -698,217 +383,104 @@ struct s2145_status_resp {
 	uint8_t  tonecurve_status;
 } __attribute__((packed));
 
-#define BANK_STATUS_FREE  0x00
-#define BANK_STATUS_XFER  0x01
-#define BANK_STATUS_FULL  0x02
-
-static char *bank_statuses(uint8_t v)
-{
-	switch (v) {
-	case BANK_STATUS_FREE:
-		return "Free";
-	case BANK_STATUS_XFER:
-		return "Xfer";
-	case BANK_STATUS_FULL:
-		return "Full";
-	default:
-		return "Unknown";
-	}
-}
-
-#define TONECURVE_INIT    0x00
-#define TONECURVE_USER    0x01
-#define TONECURVE_CURRENT 0x02
-
-static char *tonecurve_statuses (uint8_t v)
-{
-	switch(v) {
-	case 0:
-		return "Initial";
-	case 1:
-		return "UserSet";
-	case 2:
-		return "Current";
-	default:
-		return "Unknown";
-	}
-}
-
 struct s2145_readtone_resp {
-	struct s2145_status_hdr hdr;
+	struct sinfonia_status_hdr hdr;
 	uint16_t total_size;
 } __attribute__((packed));
 
-struct s2145_mediainfo_item {
-	uint8_t  code;
-	uint16_t columns;
-	uint16_t rows;
-	uint8_t  media_type;
-	uint8_t  print_type; /* The same as the "print method" */
-	uint8_t  reserved[3];
-} __attribute__((packed));
-
-#define MEDIA_TYPE_UNKNOWN 0x00
-#define MEDIA_TYPE_PAPER   0x01
-
-static char *media_types(uint8_t v) {
-	switch (v) {
-	case MEDIA_TYPE_UNKNOWN:
-		return "Unknown";
-	case MEDIA_TYPE_PAPER:
-		return "Paper";
-	default:
-		return "Unknown";
-	}
-}
-
 struct s2145_mediainfo_resp {
-	struct s2145_status_hdr hdr;
+	struct sinfonia_status_hdr hdr;
 	uint8_t  count;
-	struct s2145_mediainfo_item items[10];  /* Not all necessarily used */
+	struct sinfonia_mediainfo_item items[10];  /* Not all necessarily used */
 } __attribute__((packed));
 
 struct s2145_modelname_resp {
-	struct s2145_status_hdr hdr;
+	struct sinfonia_status_hdr hdr;
 	uint8_t vendor[4];
 	uint8_t product[4];
 	uint8_t modelname[40];
 } __attribute__((packed));
 
-struct s2145_error_item {
-	uint8_t  major;
-	uint8_t  minor;
-	uint32_t print_counter;
-} __attribute__((packed));
-
-struct s2145_errorlog_resp {
-	struct s2145_status_hdr hdr;
-	uint8_t  count;
-	struct s2145_error_item items[10];  /* Not all necessarily used */
-} __attribute__((packed));
-
-struct s2145_fwinfo_resp {
-	struct s2145_status_hdr hdr;
-	uint8_t  name[8];
-	uint8_t  type[16];
-	uint8_t  date[10];
-	uint8_t  major;
-	uint8_t  minor;
-	uint16_t checksum;
-} __attribute__((packed));
-
 struct s2145_getunique_resp {
-	struct s2145_status_hdr hdr;
+	struct sinfonia_status_hdr hdr;
 	uint8_t  data[24];  /* Not necessarily all used. */
 } __attribute__((packed));
 
-#define READBACK_LEN 128    /* Needs to be larger than largest response hdr */
-#define CMDBUF_LEN sizeof(struct s2145_print_cmd)
+/* Private data structure */
+struct shinkos2145_ctx {
+	struct sinfonia_usbdev dev;
 
-static uint8_t rdbuf[READBACK_LEN];
+	uint8_t jobid;
 
-static int s2145_do_cmd(struct shinkos2145_ctx *ctx,
-			uint8_t *cmd, int cmdlen,
-			int minlen, int *num)
-{
-	int ret;
-	struct s2145_status_hdr *resp = (struct s2145_status_hdr *) rdbuf;
-
-	libusb_device_handle *dev = ctx->dev;
-	uint8_t endp_up = ctx->endp_up;
-	uint8_t endp_down = ctx->endp_down;
-
-	if ((ret = send_data(dev, endp_down,
-			     cmd, cmdlen)))
-		return (ret < 0) ? ret : -99;
-
-	ret = read_data(dev, endp_up,
-			rdbuf, READBACK_LEN, num);
-
-	if (ret < 0)
-		return ret;
-	if (*num < minlen) {
-		ERROR("Short read! (%d/%d))\n", *num, minlen);
-		return -99;
-	}
-
-	if (resp->result != RESULT_SUCCESS) {
-		INFO("Printer Status:  %02x (%s)\n", resp->status, 
-		     status_str(resp->status));
-		INFO(" Result: 0x%02x  Error: 0x%02x (0x%02x/0x%02x = %s)\n",
-		     resp->result, resp->error, resp->printer_major,
-		     resp->printer_minor, error_codes(resp->printer_major, resp->printer_minor));
-		return -99;
-	}
-
-	return ret;
-}
+	struct s2145_mediainfo_resp media;
+	struct marker marker;
+	int media_code;
+};
 
 static int get_status(struct shinkos2145_ctx *ctx)
 {
-	struct s2145_cmd_hdr cmd;
-	struct s2145_status_resp *resp = (struct s2145_status_resp *) rdbuf;
+	struct sinfonia_cmd_hdr cmd;
+	struct s2145_status_resp resp;
 	int ret, num = 0;
 
-	cmd.cmd = cpu_to_le16(S2145_CMD_STATUS);
+	cmd.cmd = cpu_to_le16(SINFONIA_CMD_GETSTATUS);
 	cmd.len = cpu_to_le16(0);
 
-	if ((ret = s2145_do_cmd(ctx,
+	if ((ret = sinfonia_docmd(&ctx->dev,
 				(uint8_t*)&cmd, sizeof(cmd),
-				sizeof(*resp),
+				(uint8_t*)&resp, sizeof(resp),
 				&num)) < 0) {
-		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
 		return ret;
 	}
 
-	INFO("Printer Status:  0x%02x (%s)\n", resp->hdr.status,
-	     status_str(resp->hdr.status));
-	if (resp->hdr.status == ERROR_PRINTER) {
-		if(resp->hdr.error == ERROR_NONE)
-			resp->hdr.error = resp->hdr.status;
+	INFO("Printer Status:  0x%02x (%s)\n", resp.hdr.status,
+	     sinfonia_status_str(resp.hdr.status));
+	if (resp.hdr.status == ERROR_PRINTER) {
+		if(resp.hdr.error == ERROR_NONE)
+			resp.hdr.error = resp.hdr.status;
 		INFO(" Error 0x%02x (%s) 0x%02x/0x%02x (%s)\n",
-		     resp->hdr.error,
-		     error_str(resp->hdr.error),
-		     resp->hdr.printer_major,
-		     resp->hdr.printer_minor, error_codes(resp->hdr.printer_major, resp->hdr.printer_minor));
+		     resp.hdr.error,
+		     sinfonia_error_str(resp.hdr.error),
+		     resp.hdr.printer_major,
+		     resp.hdr.printer_minor, error_codes(resp.hdr.printer_major, resp.hdr.printer_minor));
 	}
-	if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s2145_status_resp) - sizeof(struct s2145_status_hdr)))
+	if (le16_to_cpu(resp.hdr.payload_len) != (sizeof(struct s2145_status_resp) - sizeof(struct sinfonia_status_hdr)))
 		return 0;
 
 	INFO(" Print Counts:\n");
-	INFO("\tSince Paper Changed:\t%08u\n", le32_to_cpu(resp->count_paper));
-	INFO("\tLifetime:\t\t%08u\n", le32_to_cpu(resp->count_lifetime));
-	INFO("\tMaintainence:\t\t%08u\n", le32_to_cpu(resp->count_maint));
-	INFO("\tPrint Head:\t\t%08u\n", le32_to_cpu(resp->count_head));
-	INFO(" Cutter Actuations:\t%08u\n", le32_to_cpu(resp->count_cutter));
-	INFO(" Ribbon Remaining:\t%08u\n", le32_to_cpu(resp->count_ribbon_left));
+	INFO("\tSince Paper Changed:\t%08u\n", le32_to_cpu(resp.count_paper));
+	INFO("\tLifetime:\t\t%08u\n", le32_to_cpu(resp.count_lifetime));
+	INFO("\tMaintenance:\t\t%08u\n", le32_to_cpu(resp.count_maint));
+	INFO("\tPrint Head:\t\t%08u\n", le32_to_cpu(resp.count_head));
+	INFO(" Cutter Actuations:\t%08u\n", le32_to_cpu(resp.count_cutter));
+	INFO(" Ribbon Remaining:\t%08u\n", le32_to_cpu(resp.count_ribbon_left));
 	INFO("Bank 1: 0x%02x (%s) Job %03u @ %03u/%03u (%03u remaining)\n",
-	     resp->bank1_status, bank_statuses(resp->bank1_status),
-	     resp->bank1_printid,
-	     le16_to_cpu(resp->bank1_finished),
-	     le16_to_cpu(resp->bank1_specified),
-	     le16_to_cpu(resp->bank1_remaining));
+	     resp.bank1_status, sinfonia_bank_statuses(resp.bank1_status),
+	     resp.bank1_printid,
+	     le16_to_cpu(resp.bank1_finished),
+	     le16_to_cpu(resp.bank1_specified),
+	     le16_to_cpu(resp.bank1_remaining));
 
 	INFO("Bank 2: 0x%02x (%s) Job %03u @ %03u/%03u (%03u remaining)\n",
-	     resp->bank2_status, bank_statuses(resp->bank1_status),
-	     resp->bank2_printid,
-	     le16_to_cpu(resp->bank2_finished),
-	     le16_to_cpu(resp->bank2_specified),
-	     le16_to_cpu(resp->bank2_remaining));
+	     resp.bank2_status, sinfonia_bank_statuses(resp.bank1_status),
+	     resp.bank2_printid,
+	     le16_to_cpu(resp.bank2_finished),
+	     le16_to_cpu(resp.bank2_specified),
+	     le16_to_cpu(resp.bank2_remaining));
 
-	INFO("Tonecurve Status: 0x%02x (%s)\n", resp->tonecurve_status, tonecurve_statuses(resp->tonecurve_status));
+	INFO("Tonecurve Status: 0x%02x (%s)\n", resp.tonecurve_status, sinfonia_tonecurve_statuses(resp.tonecurve_status));
 
 	return 0;
 }
 
 static int get_fwinfo(struct shinkos2145_ctx *ctx)
 {
-	struct s2145_fwinfo_cmd  cmd;
-	struct s2145_fwinfo_resp *resp = (struct s2145_fwinfo_resp *)rdbuf;
+	struct sinfonia_fwinfo_cmd  cmd;
+	struct sinfonia_fwinfo_resp resp;
 	int num = 0;
 	int i;
 
-	cmd.hdr.cmd = cpu_to_le16(S2145_CMD_FWINFO);
+	cmd.hdr.cmd = cpu_to_le16(SINFONIA_CMD_FWINFO);
 	cmd.hdr.len = cpu_to_le16(1);
 
 	INFO("FW Information:\n");
@@ -917,124 +489,74 @@ static int get_fwinfo(struct shinkos2145_ctx *ctx)
 		int ret;
 		cmd.target = i;
 
-		if ((ret = s2145_do_cmd(ctx,
+		if ((ret = sinfonia_docmd(&ctx->dev,
 					(uint8_t*)&cmd, sizeof(cmd),
-					sizeof(*resp),
+					(uint8_t*)&resp, sizeof(resp),
 					&num)) < 0) {
-			ERROR("Failed to execute %s command (%d)\n", cmd_names(cmd.hdr.cmd), ret);
 			continue;
 		}
 
-		if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s2145_fwinfo_resp) - sizeof(struct s2145_status_hdr)))
+		if (le16_to_cpu(resp.hdr.payload_len) != (sizeof(struct sinfonia_fwinfo_resp) - sizeof(struct sinfonia_status_hdr)))
 			continue;
 
 		INFO(" %s\t ver %02x.%02x\n", fwinfo_targets(i),
-		     resp->major, resp->minor);
+		     resp.major, resp.minor);
 #if 0
-		INFO("  name:    '%s'\n", resp->name);
-		INFO("  type:    '%s'\n", resp->type);
-		INFO("  date:    '%s'\n", resp->date);
-		INFO("  version: %02x.%02x (CRC %04x)\n", resp->major, resp->minor,
-		     le16_to_cpu(resp->checksum));
+		INFO("  name:    '%s'\n", resp.name);
+		INFO("  type:    '%s'\n", resp.type);
+		INFO("  date:    '%s'\n", resp.date);
+		INFO("  version: %02x.%02x (CRC %04x)\n", resp.major, resp.minor,
+		     le16_to_cpu(resp.checksum));
 #endif
 	}
 	return 0;
 }
 
-static int get_errorlog(struct shinkos2145_ctx *ctx)
+static void dump_mediainfo(struct s2145_mediainfo_resp *resp)
 {
-	struct s2145_cmd_hdr cmd;
-	struct s2145_errorlog_resp *resp = (struct s2145_errorlog_resp *) rdbuf;
-	int ret, num = 0;
 	int i;
-
-	cmd.cmd = cpu_to_le16(S2145_CMD_ERRORLOG);
-	cmd.len = cpu_to_le16(0);
-
-	if ((ret = s2145_do_cmd(ctx,
-				(uint8_t*)&cmd, sizeof(cmd),
-				sizeof(*resp),
-				&num)) < 0) {
-		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
-		return ret;
-	}
-
-	if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s2145_errorlog_resp) - sizeof(struct s2145_status_hdr)))
-		return -2;
-
-	INFO("Stored Error Events: %u entries:\n", resp->count);
-	for (i = 0 ; i < resp->count ; i++) {
-		INFO(" %02d: @ %08u prints : 0x%02x/0x%02x (%s)\n", i,
-		     le32_to_cpu(resp->items[i].print_counter),
-		     resp->items[i].major, resp->items[i].minor,
-		     error_codes(resp->items[i].major, resp->items[i].minor));
-	}
-	return 0;
-}
-
-static int get_mediainfo(struct shinkos2145_ctx *ctx)
-{
-	struct s2145_cmd_hdr cmd;
-	struct s2145_mediainfo_resp *resp = (struct s2145_mediainfo_resp *) rdbuf;
-	int ret, num = 0;
-	int i;
-
-	cmd.cmd = cpu_to_le16(S2145_CMD_MEDIAINFO);
-	cmd.len = cpu_to_le16(0);
-
-	if ((ret = s2145_do_cmd(ctx,
-				(uint8_t*)&cmd, sizeof(cmd),
-				sizeof(*resp),
-				&num)) < 0) {
-		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
-		return ret;
-	}
-
-	if (le16_to_cpu(resp->hdr.payload_len) != (sizeof(struct s2145_mediainfo_resp) - sizeof(struct s2145_status_hdr)))
-		return -2;
 
 	INFO("Supported Media Information: %u entries:\n", resp->count);
 	for (i = 0 ; i < resp->count ; i++) {
-		INFO(" %02d: C 0x%02x (%s), %04ux%04u, M 0x%02x (%s), P 0x%02x (%s)\n", i,
-		     resp->items[i].code, print_sizes(resp->items[i].code),
-		     le16_to_cpu(resp->items[i].columns),
-		     le16_to_cpu(resp->items[i].rows),
-		     resp->items[i].media_type, media_types(resp->items[i].media_type),
-		     resp->items[i].print_type, print_methods(resp->items[i].print_type));
+		INFO(" %02d: C 0x%02x (%s), %04ux%04u, P 0x%02x (%s)\n", i,
+		     resp->items[i].code,
+		     sinfonia_print_codes(resp->items[i].code, 0),
+		     resp->items[i].columns,
+		     resp->items[i].rows,
+		     resp->items[i].method,
+		     sinfonia_print_methods(resp->items[i].method));
 	}
-	return 0;
 }
 
 static int get_user_string(struct shinkos2145_ctx *ctx)
 {
-	struct s2145_cmd_hdr cmd;
-	struct s2145_getunique_resp *resp = (struct s2145_getunique_resp*) rdbuf;
+	struct sinfonia_cmd_hdr cmd;
+	struct s2145_getunique_resp resp;
 	int ret, num = 0;
 
-	cmd.cmd = cpu_to_le16(S2145_CMD_GETUNIQUE);
+	cmd.cmd = cpu_to_le16(SINFONIA_CMD_GETUNIQUE);
 	cmd.len = cpu_to_le16(0);
 
-	if ((ret = s2145_do_cmd(ctx,
+	if ((ret = sinfonia_docmd(&ctx->dev,
 				(uint8_t*)&cmd, sizeof(cmd),
-				sizeof(*resp) - 1,
+				(uint8_t*)&resp, sizeof(resp),
 				&num)) < 0) {
-		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
 		return ret;
 	}
 
 	/* Null-terminate */
-	resp->hdr.payload_len = le16_to_cpu(resp->hdr.payload_len);
-	if (resp->hdr.payload_len > 23)
-		resp->hdr.payload_len = 23;
-	resp->data[resp->hdr.payload_len] = 0;
-	INFO("Unique String: '%s'\n", resp->data);
+	resp.hdr.payload_len = le16_to_cpu(resp.hdr.payload_len);
+	if (resp.hdr.payload_len > 23)
+		resp.hdr.payload_len = 23;
+	resp.data[resp.hdr.payload_len] = 0;
+	INFO("Unique String: '%s'\n", resp.data);
 	return 0;
 }
 
 static int set_user_string(struct shinkos2145_ctx *ctx, char *str)
 {
 	struct s2145_setunique_cmd cmd;
-	struct s2145_status_hdr *resp = (struct s2145_status_hdr *) rdbuf;
+	struct sinfonia_status_hdr resp;
 	int ret, num = 0;
 
 	if (str) {
@@ -1047,59 +569,13 @@ static int set_user_string(struct shinkos2145_ctx *ctx, char *str)
 		cmd.len = 0;
 	}
 
-	cmd.hdr.cmd = cpu_to_le16(S2145_CMD_SETUNIQUE);
+	cmd.hdr.cmd = cpu_to_le16(SINFONIA_CMD_SETUNIQUE);
 	cmd.hdr.len = cpu_to_le16(cmd.len + 1);
 
-	if ((ret = s2145_do_cmd(ctx,
+	if ((ret = sinfonia_docmd(&ctx->dev,
 				(uint8_t*)&cmd, cmd.len + 1 + sizeof(cmd.hdr),
-				sizeof(*resp),
+				(uint8_t*)&resp, sizeof(resp),
 				&num)) < 0) {
-		ERROR("Failed to execute %s command\n", cmd_names(cmd.hdr.cmd));
-		return ret;
-	}
-
-	return 0;
-}
-
-static int cancel_job(struct shinkos2145_ctx *ctx, char *str)
-{
-	struct s2145_cancel_cmd cmd;
-	struct s2145_status_hdr *resp = (struct s2145_status_hdr *) rdbuf;
-	int ret, num = 0;
-
-	if (!str)
-		return -1;
-
-	cmd.id = atoi(str);
-
-	cmd.hdr.cmd = cpu_to_le16(S2145_CMD_CANCELJOB);
-	cmd.hdr.len = cpu_to_le16(1);
-
-	if ((ret = s2145_do_cmd(ctx,
-				(uint8_t*)&cmd, sizeof(cmd),
-				sizeof(*resp),
-				&num)) < 0) {
-		ERROR("Failed to execute %s command\n", cmd_names(cmd.hdr.cmd));
-		return ret;
-	}
-
-	return 0;
-}
-
-static int flash_led(struct shinkos2145_ctx *ctx) 
-{
-	struct s2145_cmd_hdr cmd;
-	struct s2145_status_hdr *resp = (struct s2145_status_hdr *) rdbuf;
-	int ret, num = 0;
-
-	cmd.cmd = cpu_to_le16(S2145_CMD_FLASHLED);
-	cmd.len = cpu_to_le16(0);
-
-	if ((ret = s2145_do_cmd(ctx,
-				(uint8_t*)&cmd, sizeof(cmd),
-				sizeof(*resp),
-				&num)) < 0) {
-		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
 		return ret;
 	}
 
@@ -1109,19 +585,19 @@ static int flash_led(struct shinkos2145_ctx *ctx)
 static int reset_curve(struct shinkos2145_ctx *ctx, int target)
 {
 	struct s2145_reset_cmd cmd;
-	struct s2145_status_hdr *resp = (struct s2145_status_hdr *) rdbuf;
+	struct sinfonia_status_hdr resp;
+
 	int ret, num = 0;
 
 	cmd.target = target;
 
-	cmd.hdr.cmd = cpu_to_le16(S2145_CMD_RESET);
+	cmd.hdr.cmd = cpu_to_le16(SINFONIA_CMD_RESET);
 	cmd.hdr.len = cpu_to_le16(1);
 
-	if ((ret = s2145_do_cmd(ctx,
+	if ((ret = sinfonia_docmd(&ctx->dev,
 				(uint8_t*)&cmd, sizeof(cmd),
-				sizeof(*resp),
+				(uint8_t*)&resp, sizeof(resp),
 				&num)) < 0) {
-		ERROR("Failed to execute %s command\n", cmd_names(cmd.hdr.cmd));
 		return ret;
 	}
 
@@ -1131,65 +607,63 @@ static int reset_curve(struct shinkos2145_ctx *ctx, int target)
 static int button_set(struct shinkos2145_ctx *ctx, int enable)
 {
 	struct s2145_button_cmd cmd;
-	struct s2145_status_hdr *resp = (struct s2145_status_hdr *) rdbuf;
+	struct sinfonia_status_hdr resp;
 	int ret, num = 0;
 
-	cmd.hdr.cmd = cpu_to_le16(S2145_CMD_BUTTON);
+	cmd.hdr.cmd = cpu_to_le16(SINFONIA_CMD_BUTTON);
 	cmd.hdr.len = cpu_to_le16(1);
 
 	cmd.enabled = enable;
 
-	if ((ret = s2145_do_cmd(ctx,
+	if ((ret = sinfonia_docmd(&ctx->dev,
 				(uint8_t*)&cmd, sizeof(cmd),
-				sizeof(*resp),
+				(uint8_t*)&cmd, sizeof(resp),
 				&num)) < 0) {
-		ERROR("Failed to execute %s command\n", cmd_names(cmd.hdr.cmd));
 		return ret;
 	}
 
 	return 0;
 }
 
-static int get_tonecurve(struct shinkos2145_ctx *ctx, int type, char *fname) 
+static int get_tonecurve(struct shinkos2145_ctx *ctx, int type, char *fname)
 {
 	struct s2145_readtone_cmd  cmd;
-	struct s2145_readtone_resp *resp = (struct s2145_readtone_resp *) rdbuf;
+	struct s2145_readtone_resp resp;
 	int ret, num = 0;
 
 	uint8_t *data;
-	uint16_t curves[UPDATE_SIZE]  = { 0 } ;
+	uint16_t curves[TONE_CURVE_SIZE]  = { 0 } ;
 
 	int i,j;
 
 	cmd.curveid = type;
 
-	cmd.hdr.cmd = cpu_to_le16(S2145_CMD_READTONE);
+	cmd.hdr.cmd = cpu_to_le16(SINFONIA_CMD_READTONE);
 	cmd.hdr.len = cpu_to_le16(1);
 
-	INFO("Dump %s Tone Curve to '%s'\n", tonecurve_statuses(type), fname);
+	INFO("Dump %s Tone Curve to '%s'\n", sinfonia_tonecurve_statuses(type), fname);
 
-	if ((ret = s2145_do_cmd(ctx,
+	if ((ret = sinfonia_docmd(&ctx->dev,
 				(uint8_t*)&cmd, sizeof(cmd),
-				sizeof(*resp),
+				(uint8_t*)&resp, sizeof(resp),
 				&num)) < 0) {
-		ERROR("Failed to execute %s command\n", cmd_names(cmd.hdr.cmd));
 		return ret;
 	}
 
-	resp->total_size = le16_to_cpu(resp->total_size);
+	resp.total_size = le16_to_cpu(resp.total_size);
 
-	data = malloc(resp->total_size * 2);
+	data = malloc(resp.total_size * 2);
 	if (!data) {
 		ERROR("Memory allocation failure! (%d bytes)\n",
-		      resp->total_size * 2);
+		      resp.total_size * 2);
 		return -1;
 	}
 
 	i = 0;
-	while (i < resp->total_size) {
-		ret = read_data(ctx->dev, ctx->endp_up,
+	while (i < resp.total_size) {
+		ret = read_data(ctx->dev.dev, ctx->dev.endp_up,
 				data + i,
-				resp->total_size * 2 - i,
+				resp.total_size * 2 - i,
 				&num);
 		if (ret < 0)
 			goto done;
@@ -1197,7 +671,7 @@ static int get_tonecurve(struct shinkos2145_ctx *ctx, int type, char *fname)
 	}
 
 	i = j = 0;
-	while (i < resp->total_size) {
+	while (i < resp.total_size) {
 		memcpy(curves + j, data + i+2, data[i+1]);
 		j += data[i+1] / 2;
 		i += data[i+1] + 2;
@@ -1215,12 +689,18 @@ static int get_tonecurve(struct shinkos2145_ctx *ctx, int type, char *fname)
 			goto done;
 		}
 
-		for (i = 0 ; i < UPDATE_SIZE; i++) {
+		for (i = 0 ; i < TONE_CURVE_SIZE; i++) {
 			/* Byteswap appropriately */
 			curves[i] = cpu_to_be16(le16_to_cpu(curves[i]));
 		}
-		write(tc_fd, curves, UPDATE_SIZE * sizeof(uint16_t));
+		ret = write(tc_fd, curves, TONE_CURVE_SIZE * sizeof(uint16_t));
+		if (ret < 0)
+			ERROR("Can't write curve file\n");
+		else
+			ret = 0;
+
 		close(tc_fd);
+
 	}
 
 done:
@@ -1228,66 +708,56 @@ done:
 	return ret;
 }
 
-static int set_tonecurve(struct shinkos2145_ctx *ctx, int target, char *fname) 
+static int set_tonecurve(struct shinkos2145_ctx *ctx, int target, char *fname)
 {
 	struct s2145_update_cmd cmd;
-	struct s2145_status_hdr *resp = (struct s2145_status_hdr *) rdbuf;
+	struct sinfonia_status_hdr resp;
 	int ret, num = 0;
 
-	INFO("Set %s Tone Curve from '%s'\n", update_targets(target), fname);
+	INFO("Set %s Tone Curve from '%s'\n", sinfonia_update_targets(target), fname);
 
-	uint16_t *data = malloc(UPDATE_SIZE * sizeof(uint16_t));
+	uint16_t *data = malloc(TONE_CURVE_SIZE * sizeof(uint16_t));
 
 	if (!data) {
 		ERROR("Memory allocation failure! (%d bytes)\n",
-		      UPDATE_SIZE);
+		      TONE_CURVE_SIZE);
 		return -1;
 	}
 
 	/* Read in file */
-#ifdef __OS2__
-	int tc_fd = open(fname, O_RDONLY | O_BINARY);
-#else
-	int tc_fd = open(fname, O_RDONLY);
-#endif
-	if (tc_fd < 0) {
-		ret = -1;
+	if ((ret = dyesub_read_file(fname, data, TONE_CURVE_SIZE, NULL))) {
+		ERROR("Failed to read Tone Curve file\n");
 		goto done;
 	}
-	if (read(tc_fd, data, UPDATE_SIZE * sizeof(uint16_t)) != (UPDATE_SIZE * sizeof(uint16_t))) {
-		ret = -2;
-		goto done;
-	}
-	close(tc_fd);
+
 	/* Byteswap data to local CPU.. */
-	for (ret = 0; ret < UPDATE_SIZE ; ret++) {
+	for (ret = 0; ret < TONE_CURVE_SIZE ; ret++) {
 		data[ret] = be16_to_cpu(data[ret]);
 	}
 
 	/* Set up command */
 	cmd.target = target;
 	cmd.reserved = 0;
-	cmd.size = cpu_to_le32(UPDATE_SIZE * sizeof(uint16_t));
+	cmd.size = cpu_to_le32(TONE_CURVE_SIZE * sizeof(uint16_t));
 
-	cmd.hdr.cmd = cpu_to_le16(S2145_CMD_UPDATE);
+	cmd.hdr.cmd = cpu_to_le16(SINFONIA_CMD_UPDATE);
 	cmd.hdr.len = cpu_to_le16(sizeof(struct s2145_update_cmd)-sizeof(cmd.hdr));
 
 	/* Byteswap data to format printer is expecting.. */
-	for (ret = 0; ret < UPDATE_SIZE ; ret++) {
+	for (ret = 0; ret < TONE_CURVE_SIZE ; ret++) {
 		data[ret] = cpu_to_le16(data[ret]);
 	}
 
-	if ((ret = s2145_do_cmd(ctx,
+	if ((ret = sinfonia_docmd(&ctx->dev,
 				(uint8_t*)&cmd, sizeof(cmd),
-				sizeof(*resp),
+				(uint8_t*)&resp, sizeof(resp),
 				&num)) < 0) {
-		ERROR("Failed to execute %s command\n", cmd_names(cmd.hdr.cmd));
 		goto done;
 	}
 
 	/* Sent transfer */
-	if ((ret = send_data(ctx->dev, ctx->endp_down,
-			     (uint8_t *) data, UPDATE_SIZE * sizeof(uint16_t)))) {
+	if ((ret = send_data(ctx->dev.dev, ctx->dev.endp_down,
+			     (uint8_t *) data, TONE_CURVE_SIZE * sizeof(uint16_t)))) {
 		goto done;
 	}
 
@@ -1303,7 +773,6 @@ static void shinkos2145_cmdline(void)
 	DEBUG("\t\t[ -c filename ]  # Get user/NV tone curve\n");
 	DEBUG("\t\t[ -C filename ]  # Set user/NV tone curve\n");
 	DEBUG("\t\t[ -e ]           # Query error log\n");
-	DEBUG("\t\t[ -f ]           # Use fast return mode\n");
 	DEBUG("\t\t[ -F ]           # Flash Printer LED\n");
 	DEBUG("\t\t[ -i ]           # Query printer info\n");
 	DEBUG("\t\t[ -l filename ]  # Get current tone curve\n");
@@ -1343,10 +812,10 @@ int shinkos2145_cmdline_arg(void *vctx, int argc, char **argv)
 			j = set_tonecurve(ctx, TONECURVE_USER, optarg);
 			break;
 		case 'e':
-			j = get_errorlog(ctx);
+			j = sinfonia_geterrorlog(&ctx->dev);
 			break;
 		case 'F':
-			j = flash_led(ctx);
+			j = sinfonia_flashled(&ctx->dev);
 			break;
 		case 'i':
 			j = get_fwinfo(ctx);
@@ -1358,7 +827,7 @@ int shinkos2145_cmdline_arg(void *vctx, int argc, char **argv)
 			j = set_tonecurve(ctx, TONECURVE_CURRENT, optarg);
 			break;
 		case 'm':
-			j = get_mediainfo(ctx);
+			dump_mediainfo(&ctx->media);
 			break;
 		case 'r':
 			j = reset_curve(ctx, RESET_USER_CURVE);
@@ -1376,7 +845,7 @@ int shinkos2145_cmdline_arg(void *vctx, int argc, char **argv)
 			j = set_user_string(ctx, optarg);
 			break;
 		case 'X':
-			j = cancel_job(ctx, optarg);
+			j = sinfonia_canceljob(&ctx->dev, atoi(optarg));
 			break;
 		default:
 			break;  /* Ignore completely */
@@ -1402,177 +871,124 @@ static void *shinkos2145_init(void)
 	return ctx;
 }
 
-static void shinkos2145_attach(void *vctx, struct libusb_device_handle *dev, 
-			       uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
+static int shinkos2145_attach(void *vctx, struct libusb_device_handle *dev, int type,
+			      uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct shinkos2145_ctx *ctx = vctx;
-	struct libusb_device *device;
-	struct libusb_device_descriptor desc;
 
-	ctx->dev = dev;
-	ctx->endp_up = endp_up;
-	ctx->endp_down = endp_down;
-
-	device = libusb_get_device(dev);
-	libusb_get_device_descriptor(device, &desc);
-	
-	ctx->type = lookup_printer_type(&shinkos2145_backend,
-					desc.idVendor, desc.idProduct);	
+	ctx->dev.dev = dev;
+	ctx->dev.endp_up = endp_up;
+	ctx->dev.endp_down = endp_down;
+	ctx->dev.type = type;
+	ctx->dev.error_codes = &error_codes;
 
 	/* Ensure jobid is sane */
 	ctx->jobid = (jobid & 0x7f);
 	if (!ctx->jobid)
 		ctx->jobid++;
 
-	/* Initialize donor */
-	ctx->last_donor = ctx->last_remain = ctx->media_prints = 65535;
-}
+	int media_prints = 65536;
+	if (test_mode < TEST_MODE_NOATTACH) {
+		/* Query Media */
+		struct sinfonia_cmd_hdr cmd;
+		int num = 0;
+		int i;
 
-static void shinkos2145_teardown(void *vctx) {
-	struct shinkos2145_ctx *ctx = vctx;
+		cmd.cmd = cpu_to_le16(SINFONIA_CMD_MEDIAINFO);
+		cmd.len = cpu_to_le16(0);
 
-	if (!ctx)
-		return;
+		if (sinfonia_docmd(&ctx->dev,
+				 (uint8_t*)&cmd, sizeof(cmd),
+				 (uint8_t*)&ctx->media, sizeof(ctx->media),
+				 &num)) {
+			return CUPS_BACKEND_FAILED;
+		}
 
-	if (ctx->databuf)
-		free(ctx->databuf);
+		/* Byteswap media descriptor.. */
+		for (i = 0 ; i < ctx->media.count ; i++) {
+			ctx->media.items[i].columns = le16_to_cpu(ctx->media.items[i].columns);
+			ctx->media.items[i].rows = le16_to_cpu(ctx->media.items[i].rows);
+		}
 
-	free(ctx);
-}
-
-static int shinkos2145_read_parse(void *vctx, int data_fd) {
-	struct shinkos2145_ctx *ctx = vctx;
-	int ret;
-	uint8_t tmpbuf[4];
-
-	if (!ctx)
-		return CUPS_BACKEND_FAILED;
-
-	/* Read in then validate header */
-	ret = read(data_fd, &ctx->hdr, sizeof(ctx->hdr));
-	if (ret < 0 || ret != sizeof(ctx->hdr)) {
-		if (ret == 0)
-			return CUPS_BACKEND_CANCEL;
-		ERROR("Read failed (%d/%d/%d)\n", 
-		      ret, 0, (int)sizeof(ctx->hdr));
-		perror("ERROR: Read failed");
-		return ret;
-	}
-
-	if (le32_to_cpu(ctx->hdr.len1) != 0x10 ||
-	    le32_to_cpu(ctx->hdr.len2) != 0x64 ||
-	    le32_to_cpu(ctx->hdr.dpi) != 300) {
-		ERROR("Unrecognized header data format!\n");
-		return CUPS_BACKEND_CANCEL;
-	}
-
-	if (le32_to_cpu(ctx->hdr.model) != 2145) {
-		ERROR("Unrecognized printer (%u)!\n", le32_to_cpu(ctx->hdr.model));
-
-		return CUPS_BACKEND_CANCEL;
-	}
-
-	if (ctx->databuf) {
-		free(ctx->databuf);
-		ctx->databuf = NULL;
-	}
-
-	ctx->datalen = le32_to_cpu(ctx->hdr.rows) * le32_to_cpu(ctx->hdr.columns) * 3;
-	ctx->databuf = malloc(ctx->datalen);
-	if (!ctx->databuf) {
-		ERROR("Memory allocation failure!\n");
-		return CUPS_BACKEND_FAILED;
-	}
-
-	{
-		int remain = ctx->datalen;
-		uint8_t *ptr = ctx->databuf;
-		do {
-			ret = read(data_fd, ptr, remain);
-			if (ret < 0) {
-				ERROR("Read failed (%d/%d/%d)\n", 
-				      ret, remain, ctx->datalen);
-				perror("ERROR: Read failed");
-				return ret;
+		/* Figure out the media type... */
+		for (i = 0 ; i < ctx->media.count ; i++) {
+			if (print_counts(ctx->media.items[i].code) < media_prints) {
+				media_prints = print_counts(ctx->media.items[i].code);
+				ctx->media_code = ctx->media.items[i].code;
 			}
-			ptr += ret;
-			remain -= ret;
-		} while (remain);
+		}
+	} else {
+		int media_code = CODE_6x9;
+		if (getenv("MEDIA_CODE"))
+			media_code = atoi(getenv("MEDIA_CODE"));
+
+		media_prints = 680;
+		ctx->media_code = media_code;
 	}
 
-	/* Make sure footer is sane too */
-	ret = read(data_fd, tmpbuf, 4);
-	if (ret != 4) {
-		ERROR("Read failed (%d/%d/%d)\n", 
-		      ret, 4, 4);
-		perror("ERROR: Read failed");
-		return ret;
-	}
-	if (tmpbuf[0] != 0x04 ||
-	    tmpbuf[1] != 0x03 ||
-	    tmpbuf[2] != 0x02 ||
-	    tmpbuf[3] != 0x01) {
-		ERROR("Unrecognized footer data format!\n");
-		return CUPS_BACKEND_FAILED;
-	}
+	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
+	ctx->marker.name = sinfonia_print_codes(ctx->media_code, 0);
+	ctx->marker.levelmax = media_prints;
+	ctx->marker.levelnow = -2;
 
 	return CUPS_BACKEND_OK;
 }
 
-static int shinkos2145_main_loop(void *vctx, int copies) {
+static int shinkos2145_read_parse(void *vctx, const void **vjob, int data_fd, int copies) {
+	struct shinkos2145_ctx *ctx = vctx;
+	struct sinfonia_printjob *job = NULL;
+	int ret;
+
+	if (!ctx)
+		return CUPS_BACKEND_FAILED;
+
+	job = malloc(sizeof(*job));
+	if (!job) {
+		ERROR("Memory allocation failure!\n");
+		return CUPS_BACKEND_RETRY_CURRENT;
+	}
+	memset(job, 0, sizeof(*job));
+
+	/* Common read/parse code */
+	ret = sinfonia_read_parse(data_fd, 2145, job);
+	if (ret) {
+		free(job);
+		return ret;
+	}
+
+	if (job->jp.copies > 1)
+		job->copies = job->jp.copies;
+	else
+		job->copies = copies;
+
+	*vjob = job;
+
+	return CUPS_BACKEND_OK;
+}
+
+static int shinkos2145_main_loop(void *vctx, const void *vjob) {
 	struct shinkos2145_ctx *ctx = vctx;
 
 	int ret, num;
-	uint8_t cmdbuf[CMDBUF_LEN];
-	uint8_t rdbuf2[READBACK_LEN];
 
 	int i, last_state = -1, state = S_IDLE;
 
-	struct s2145_cmd_hdr *cmd = (struct s2145_cmd_hdr *) cmdbuf;;
-	struct s2145_print_cmd *print = (struct s2145_print_cmd *) cmdbuf;
-	struct s2145_status_resp *sts = (struct s2145_status_resp *) rdbuf; 
-	struct s2145_mediainfo_resp *media = (struct s2145_mediainfo_resp *) rdbuf;
-
-	/* Send Media Query */
-	memset(cmdbuf, 0, CMDBUF_LEN);
-	cmd->cmd = cpu_to_le16(S2145_CMD_MEDIAINFO);
-	cmd->len = cpu_to_le16(0);
-
-	if ((ret = s2145_do_cmd(ctx,
-				cmdbuf, sizeof(*cmd),
-				sizeof(*media),
-				&num)) < 0) {
-		ERROR("Failed to execute %s command\n", cmd_names(cmd->cmd));
-		return CUPS_BACKEND_FAILED;
-	}
-
-	if (le16_to_cpu(media->hdr.payload_len) != (sizeof(struct s2145_mediainfo_resp) - sizeof(struct s2145_status_hdr)))
-		return CUPS_BACKEND_FAILED;
+	struct sinfonia_printjob *job = (struct sinfonia_printjob*) vjob;
+	struct sinfonia_cmd_hdr cmd;
+	struct s2145_status_resp sts, sts2;
 
 	/* Validate print sizes */
-	for (i = 0; i < media->count ; i++) {
-		/* Figure out the media type... */
-		int media_prints = print_counts(media->items[i].code);
-		if (media_prints < ctx->media_prints)
-			ctx->media_prints = media_prints;
-
+	for (i = 0; i < ctx->media.count ; i++) {
 		/* Look for matching media */
-		if (le16_to_cpu(media->items[i].columns) == cpu_to_le16(le32_to_cpu(ctx->hdr.columns)) &&
-		    le16_to_cpu(media->items[i].rows) == cpu_to_le16(le32_to_cpu(ctx->hdr.rows)) &&
-		    media->items[i].print_type == le32_to_cpu(ctx->hdr.method))
+		if (ctx->media.items[i].columns == job->jp.columns &&
+		    ctx->media.items[i].rows == job->jp.rows &&
+		    ctx->media.items[i].method == job->jp.method)
 			break;
 	}
-	if (i == media->count) {
+	if (i == ctx->media.count) {
 		ERROR("Incorrect media loaded for print!\n");
 		return CUPS_BACKEND_HOLD;
 	}
-
-        /* Tell CUPS about the consumables we report */
-        ATTR("marker-colors=#00FFFF#FF00FF#FFFF00\n");
-        ATTR("marker-high-levels=100\n");
-        ATTR("marker-low-levels=10\n");
-        ATTR("marker-names='Color'\n");
-        ATTR("marker-types=ribbonWax\n");
 
 	// XXX check copies against remaining media!
 
@@ -1583,41 +999,30 @@ top:
 	}
 
 	/* Send Status Query */
-	memset(cmdbuf, 0, CMDBUF_LEN);
-	cmd->cmd = cpu_to_le16(S2145_CMD_STATUS);
-	cmd->len = cpu_to_le16(0);
+	cmd.cmd = cpu_to_le16(SINFONIA_CMD_GETSTATUS);
+	cmd.len = cpu_to_le16(0);
 
-	if ((ret = s2145_do_cmd(ctx,
-				cmdbuf, sizeof(*cmd),
-				sizeof(struct s2145_status_hdr),
+	if ((ret = sinfonia_docmd(&ctx->dev,
+				(uint8_t*)&cmd, sizeof(cmd),
+				(uint8_t*)&sts, sizeof(sts),
 				&num)) < 0) {
-		ERROR("Failed to execute %s command\n", cmd_names(cmd->cmd));
 		return CUPS_BACKEND_FAILED;
 	}
 
-	if (memcmp(rdbuf, rdbuf2, READBACK_LEN)) {
-		uint16_t donor, remain;
-
-		memcpy(rdbuf2, rdbuf, READBACK_LEN);
+	if (memcmp(&sts, &sts2, sizeof(sts))) {
+		memcpy(&sts2, &sts, sizeof(sts));
 
 		INFO("Printer Status: 0x%02x (%s)\n",
-		     sts->hdr.status, status_str(sts->hdr.status));
+		     sts.hdr.status, sinfonia_status_str(sts.hdr.status));
 
-		/* Guessimate a percentage for the remaining media */
-		donor = le32_to_cpu(sts->count_ribbon_left) * 100 / ctx->media_prints;
-		if (donor != ctx->last_donor) {
-			ctx->last_donor = donor;
-			ATTR("marker-levels=%d\n", donor);
-		}
-		remain = le32_to_cpu(sts->count_ribbon_left);
-		if (remain != ctx->last_remain) {
-			ctx->last_remain = remain;
-			ATTR("marker-message=\"%d prints remaining on ribbon\"\n", remain);
+		if (ctx->marker.levelnow != (int)sts.count_ribbon_left) {
+			ctx->marker.levelnow = sts.count_ribbon_left;
+			dump_markers(&ctx->marker, 1, 0);
 		}
 
-		if (sts->hdr.result != RESULT_SUCCESS)
+		if (sts.hdr.result != RESULT_SUCCESS)
 			goto printer_error;
-		if (sts->hdr.error == ERROR_PRINTER)
+		if (sts.hdr.error == ERROR_PRINTER)
 			goto printer_error;
 	} else if (state == last_state) {
 		sleep(1);
@@ -1633,8 +1038,8 @@ top:
 
 		/* make sure we're not colliding with an existing
 		   jobid */
-		while (ctx->jobid == sts->bank1_printid ||
-		       ctx->jobid == sts->bank2_printid) {
+		while (ctx->jobid == sts.bank1_printid ||
+		       ctx->jobid == sts.bank2_printid) {
 			ctx->jobid++;
 			ctx->jobid &= 0x7f;
 			if (!ctx->jobid)
@@ -1642,60 +1047,63 @@ top:
 		}
 
 		/* If either bank is free, continue */
-		if (sts->bank1_status == BANK_STATUS_FREE ||
-		    sts->bank2_status == BANK_STATUS_FREE)
+		if (sts.bank1_status == BANK_STATUS_FREE ||
+		    sts.bank2_status == BANK_STATUS_FREE)
 			state = S_PRINTER_READY_CMD;
 
 		break;
-	case S_PRINTER_READY_CMD:
+	case S_PRINTER_READY_CMD: {
+		struct sinfonia_printcmd10_hdr print;
+
 		INFO("Sending print job (internal id %u)\n", ctx->jobid);
 
-		memset(cmdbuf, 0, CMDBUF_LEN);
-		print->hdr.cmd = cpu_to_le16(S2145_CMD_PRINTJOB);
-		print->hdr.len = cpu_to_le16(sizeof (*print) - sizeof(*cmd));
+		memset(&print, 0, sizeof(print));
+		print.hdr.cmd = cpu_to_le16(SINFONIA_CMD_PRINTJOB);
+		print.hdr.len = cpu_to_le16(sizeof(print) - sizeof(print.hdr));
 
-		print->id = ctx->jobid;
-		print->count = cpu_to_le16(copies);
-		print->columns = cpu_to_le16(le32_to_cpu(ctx->hdr.columns));
-		print->rows = cpu_to_le16(le32_to_cpu(ctx->hdr.rows));
-		print->media = le32_to_cpu(ctx->hdr.media);
-		print->mode = le32_to_cpu(ctx->hdr.mode);
-		print->method = le32_to_cpu(ctx->hdr.method);
+		print.jobid = ctx->jobid;
+		print.copies = cpu_to_le16(job->copies);
+		print.columns = cpu_to_le16(job->jp.columns);
+		print.rows = cpu_to_le16(job->jp.rows);
+		print.media = job->jp.media;
+		print.oc_mode = job->jp.oc_mode;
+		print.method = job->jp.method;
 
-		if ((ret = s2145_do_cmd(ctx,
-					cmdbuf, sizeof(*print),
-					sizeof(struct s2145_status_hdr),
+		if ((ret = sinfonia_docmd(&ctx->dev,
+					(uint8_t*)&print, sizeof(print),
+					(uint8_t*)&sts, sizeof(sts),
 					&num)) < 0) {
-			ERROR("Failed to execute %s command\n", cmd_names(print->hdr.cmd));
 			return ret;
 		}
 
-		if (sts->hdr.result != RESULT_SUCCESS) {
-			if (sts->hdr.error == ERROR_BUFFER_FULL) {
+		if (sts.hdr.result != RESULT_SUCCESS) {
+			if (sts.hdr.error == ERROR_BUFFER_FULL) {
 				INFO("Printer Buffers full, retrying\n");
 				break;
-			} else if ((sts->hdr.status & 0xf0) == 0x30 || sts->hdr.status == 0x21) {
-				INFO("Printer busy (%s), retrying\n", status_str(sts->hdr.status));
+			} else if ((sts.hdr.status & 0xf0) == 0x30 || sts.hdr.status == 0x21) {
+				INFO("Printer busy (%s), retrying\n", sinfonia_status_str(sts.hdr.status));
 				break;
-			} else if (sts->hdr.status != ERROR_NONE)
+			} else if (sts.hdr.status != ERROR_NONE)
 				goto printer_error;
 		}
 
 		INFO("Sending image data to printer\n");
-		if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     ctx->databuf, ctx->datalen)))
+		if ((ret = send_data(ctx->dev.dev, ctx->dev.endp_down,
+				     job->databuf, job->datalen)))
 			return CUPS_BACKEND_FAILED;
 
 		INFO("Waiting for printer to acknowledge completion\n");
 		sleep(1);
 		state = S_PRINTER_SENT_DATA;
 		break;
+	}
 	case S_PRINTER_SENT_DATA:
 		if (fast_return) {
 			INFO("Fast return mode enabled.\n");
 			state = S_FINISHED;
-		} else if (sts->hdr.status == STATUS_READY ||
-			   sts->hdr.status == STATUS_FINISHED) {
+		} else if (sts.hdr.status == STATUS_READY ||
+			   sts.hdr.status == STATUS_FINISHED ||
+			   sts.hdr.status == ERROR_PRINTER) {
 			state = S_FINISHED;
 		}
 		break;
@@ -1706,51 +1114,83 @@ top:
 	if (state != S_FINISHED)
 		goto top;
 
+	if (sts.hdr.status == ERROR_PRINTER) {
+		if(sts.hdr.error == ERROR_NONE)
+			sts.hdr.error = sts.hdr.status;
+		INFO(" Error 0x%02x (%s) 0x%02x/0x%02x (%s)\n",
+		     sts.hdr.error,
+		     sinfonia_error_str(sts.hdr.error),
+		     sts.hdr.printer_major,
+		     sts.hdr.printer_minor, error_codes(sts.hdr.printer_major, sts.hdr.printer_minor));
+	}
+
 	INFO("Print complete\n");
 
 	return CUPS_BACKEND_OK;
 
 printer_error:
 	ERROR("Printer reported error: %#x (%s) status: %#x (%s) -> %#x.%#x (%s)\n",
-	      sts->hdr.error, 
-	      error_str(sts->hdr.error),
-	      sts->hdr.status, 
-	      status_str(sts->hdr.status),
-	      sts->hdr.printer_major, sts->hdr.printer_minor,
-	      error_codes(sts->hdr.printer_major, sts->hdr.printer_minor));
+	      sts.hdr.error,
+	      sinfonia_error_str(sts.hdr.error),
+	      sts.hdr.status,
+	      sinfonia_status_str(sts.hdr.status),
+	      sts.hdr.printer_major, sts.hdr.printer_minor,
+	      error_codes(sts.hdr.printer_major, sts.hdr.printer_minor));
 	return CUPS_BACKEND_FAILED;
 }
 
 static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t endp_up, uint8_t endp_down, char *buf, int buf_len)
 {
-	struct s2145_cmd_hdr cmd;
-	struct s2145_getunique_resp *resp = (struct s2145_getunique_resp*) rdbuf;
+	struct sinfonia_cmd_hdr cmd;
+	struct s2145_getunique_resp resp;
 	int ret, num = 0;
 
-	struct shinkos2145_ctx ctx = {
+	struct sinfonia_usbdev sdev = {
 		.dev = dev,
 		.endp_up = endp_up,
 		.endp_down = endp_down,
 	};
 
-	cmd.cmd = cpu_to_le16(S2145_CMD_GETUNIQUE);
+	cmd.cmd = cpu_to_le16(SINFONIA_CMD_GETUNIQUE);
 	cmd.len = cpu_to_le16(0);
 
-	if ((ret = s2145_do_cmd(&ctx,
-				(uint8_t*)&cmd, sizeof(cmd),
-				sizeof(*resp) - 1,
-				&num)) < 0) {
-		ERROR("Failed to execute %s command\n", cmd_names(cmd.cmd));
+	if ((ret = sinfonia_docmd(&sdev,
+				  (uint8_t*)&cmd, sizeof(cmd),
+				  (uint8_t*)&resp, sizeof(resp),
+				  &num)) < 0) {
 		return ret;
 	}
 
-	/* Null-terminate */
-	resp->hdr.payload_len = le16_to_cpu(resp->hdr.payload_len);
-	if (resp->hdr.payload_len > 23)
-		resp->hdr.payload_len = 23;
-	resp->data[resp->hdr.payload_len] = 0;
-	strncpy(buf, (char*)resp->data, buf_len);
-	buf[buf_len-1] = 0; /* ensure it's null terminated */
+	/* Copy and Null-terminate */
+	num = (buf_len > (int)sizeof(resp.data)) ? (int)sizeof(resp.data) : (buf_len - 1);
+	memcpy(buf, resp.data, num);
+	buf[num] = 0;
+
+	return CUPS_BACKEND_OK;
+}
+
+static int shinkos2145_query_markers(void *vctx, struct marker **markers, int *count)
+{
+	struct shinkos2145_ctx *ctx = vctx;
+	struct sinfonia_cmd_hdr cmd;
+	struct s2145_status_resp sts;
+	int num;
+
+	/* Query Status */
+	cmd.cmd = cpu_to_le16(SINFONIA_CMD_GETSTATUS);
+	cmd.len = cpu_to_le16(0);
+
+	if (sinfonia_docmd(&ctx->dev,
+			 (uint8_t*)&cmd, sizeof(cmd),
+			 (uint8_t*)&sts, sizeof(sts),
+			 &num)) {
+		return CUPS_BACKEND_FAILED;
+	}
+
+	ctx->marker.levelnow = ctx->marker.levelmax - le32_to_cpu(sts.count_ribbon_left);
+
+	*markers = &ctx->marker;
+	*count = 1;
 
 	return CUPS_BACKEND_OK;
 }
@@ -1759,21 +1199,31 @@ static int shinkos2145_query_serno(struct libusb_device_handle *dev, uint8_t end
 #define USB_VID_SHINKO       0x10CE
 #define USB_PID_SHINKO_S2145 0x000E
 
+static const char *shinkos2145_prefixes[] = {
+	"shinko-chcs2145",
+	// extras
+	"sinfonia-chcs2145",
+	// Backwards compatibility
+	"shinkos2145",
+	NULL
+};
+
 struct dyesub_backend shinkos2145_backend = {
-	.name = "Shinko/Sinfonia CHC-S2145",
-	.version = "0.48",
-	.uri_prefix = "shinkos2145",
+	.name = "Shinko/Sinfonia CHC-S2145/S2",
+	.version = "0.61" " (lib " LIBSINFONIA_VER ")",
+	.uri_prefixes = shinkos2145_prefixes,
 	.cmdline_usage = shinkos2145_cmdline,
 	.cmdline_arg = shinkos2145_cmdline_arg,
 	.init = shinkos2145_init,
 	.attach = shinkos2145_attach,
-	.teardown = shinkos2145_teardown,
+	.cleanup_job = sinfonia_cleanup_job,
 	.read_parse = shinkos2145_read_parse,
 	.main_loop = shinkos2145_main_loop,
 	.query_serno = shinkos2145_query_serno,
+	.query_markers = shinkos2145_query_markers,
 	.devices = {
-	{ USB_VID_SHINKO, USB_PID_SHINKO_S2145, P_SHINKO_S2145, ""},
-	{ 0, 0, 0, ""}
+		{ USB_VID_SHINKO, USB_PID_SHINKO_S2145, P_SHINKO_S2145, NULL, "shinko-chc2145"},
+		{ 0, 0, 0, NULL, NULL}
 	}
 };
 
@@ -1790,7 +1240,7 @@ struct dyesub_backend shinkos2145_backend = {
    00 00 00 00 00 00 00 00  00 00 00 00 ce ff ff ff
    00 00 00 00 ce ff ff ff  QQ QQ 00 00 ce ff ff ff  QQ == DPI, ie 300.
    00 00 00 00 ce ff ff ff  00 00 00 00 00 00 00 00
-   00 00 00 00 
+   00 00 00 00
 
    [[Packed RGB payload of WW*HH*3 bytes]]
 

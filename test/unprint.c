@@ -16,8 +16,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -417,7 +416,7 @@ expand_line (unsigned char *src, unsigned char *dst, int height, int skip,
   /*
    * src is a pointer to a bit stream which is composed of fields of height
    * bpp starting with the most significant bit of the first byte and
-   * proceding from there with no regard to byte boundaries.  For the
+   * proceeding from there with no regard to byte boundaries.  For the
    * existing Epson printers, bpp is 1 or 2, which means fields will never
    * cross byte boundaries.  However, if bpp were 3, this would undoubtedly
    * happen.  This routine will make no assumptions about bpp, and handle each
@@ -1719,7 +1718,7 @@ main(int argc,char *argv[])
 	      if (!(fp_w = fopen(argv[arg],"w")))
 #endif
 		{
-		  perror("Error opening ouput file");
+		  perror("Error opening output file");
 		  exit(-1);
 		}
 	    }

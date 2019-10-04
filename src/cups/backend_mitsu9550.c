@@ -1,7 +1,7 @@
 /*
  *   Mitsubishi CP-9xxx Photo Printer Family CUPS backend
  *
- *   (c) 2014-2016 Solomon Peachy <pizza@shaftnet.org>
+ *   (c) 2014-2019 Solomon Peachy <pizza@shaftnet.org>
  *
  *   The latest version of this program can be found at:
  *
@@ -18,10 +18,11 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  *          [http://www.gnu.org/licenses/gpl-2.0.html]
+ *
+ *   SPDX-License-Identifier: GPL-2.0+
  *
  */
 
@@ -35,9 +36,82 @@
 #include <fcntl.h>
 #include <signal.h>
 
+/* For Integration into gutenprint */
+#if defined(HAVE_CONFIG_H)
+#include <config.h>
+#endif
+
 #define BACKEND mitsu9550_backend
 
+
+#if defined(USE_DLOPEN)
+#define WITH_DYNAMIC
+#include <dlfcn.h>
+#define DL_INIT() do {} while(0)
+#define DL_OPEN(__x) dlopen(__x, RTLD_NOW)
+#define DL_SYM(__x, __y) dlsym(__x, __y)
+#define DL_CLOSE(__x) dlclose(__x)
+#define DL_EXIT() do {} while(0)
+#elif defined(USE_LTDL)
+#define WITH_DYNAMIC
+#include <ltdl.h>
+#define DL_INIT() lt_dlinit()
+#define DL_OPEN(__x) lt_dlopen(__x)
+#define DL_SYM(__x, __y) lt_dlsym(__x, __y)
+#define DL_CLOSE(__x) do {} while(0)
+#define DL_EXIT() lt_dlexit()
+#else
+#define DL_INIT()     do {} while(0)
+#define DL_CLOSE(__x) do {} while(0)
+#define DL_EXIT()     do {} while(0)
+#warning "No dynamic loading support!"
+#endif
+
 #include "backend_common.h"
+
+// #include "lib70x/libMitsuD70ImageReProcess.h"
+
+#ifndef LUT_LEN
+#define COLORCONV_RGB 0
+#define COLORCONV_BGR 1
+
+#define LUT_LEN 14739
+struct BandImage {
+	   void  *imgbuf;
+	 int32_t bytes_per_row;
+	uint16_t origin_cols;
+	uint16_t origin_rows;
+	uint16_t cols;
+	uint16_t rows;
+};
+#endif
+
+#define REQUIRED_LIB_APIVERSION 4
+
+/* Image processing library function prototypes */
+#define LIB_NAME_RE "libMitsuD70ImageReProcess.so" // Reimplemented library
+
+typedef int (*lib70x_getapiversionFN)(void);
+typedef int (*Get3DColorTableFN)(uint8_t *buf, const char *filename);
+typedef struct CColorConv3D *(*Load3DColorTableFN)(const uint8_t *ptr);
+typedef void (*Destroy3DColorTableFN)(struct CColorConv3D *this);
+typedef void (*DoColorConvFN)(struct CColorConv3D *this, uint8_t *data, uint16_t cols, uint16_t rows, uint32_t bytes_per_row, int rgb_bgr);
+
+#ifndef CORRTABLE_PATH
+#ifdef PACKAGE_DATA_DIR
+#define CORRTABLE_PATH PACKAGE_DATA_DIR "/backend_data"
+#else
+#error "Must define CORRTABLE_PATH or PACKAGE_DATA_DIR!"
+#endif
+#endif
+
+#define MITSU_M98xx_LAMINATE_FILE CORRTABLE_PATH "/M98MATTE.raw"
+#define MITSU_M98xx_DATATABLE_FILE CORRTABLE_PATH "/M98TABLE.dat"
+#define MITSU_M98xx_LUT_FILE       CORRTABLE_PATH "/M98XXL01.lut"
+#define LAMINATE_STRIDE 1868
+#define DATATABLE_SIZE  42204
+
+/* USB VIDs and PIDs */
 
 #define USB_VID_MITSU        0x06D3
 #define USB_PID_MITSU_9500D  0x0393
@@ -57,71 +131,94 @@
 
 /* Print parameters1 */
 struct mitsu9550_hdr1 {
-	uint8_t  cmd[4]; /* 1b 57 20 2e */
+	uint8_t  cmd[4];  /* 1b 57 20 2e */
 	uint8_t  unk[10]; /* 00 0a 10 00 [...] */
-	uint16_t cols; /* BE */
-	uint16_t rows; /* BE */
-	uint8_t  matte;  /* CP9810 only. 01 for matte, 00 glossy */
+	uint16_t cols;    /* BE */
+	uint16_t rows;    /* BE */
+	uint8_t  matte;   /* CP9810/9820 only. 01 for matte, 00 glossy */
 	uint8_t  null[31];
 } __attribute__((packed));
 
 /* Print parameters2 */
 struct mitsu9550_hdr2 {
-	uint8_t  cmd[4]; /* 1b 57 21 2e */
-	uint8_t  unk[24]; /* 00 80 00 22 08 03 00 [...] */
-	uint16_t copies; /* BE, 1-680 */
+	uint8_t  cmd[4];   /* 1b 57 21 2e */
+	uint8_t  unk[24];  /* 00 80 00 22 08 03 [...] */
+	uint16_t copies;   /* BE, 1-680 */
 	uint8_t  null[2];
-	uint8_t  cut; /* 00 == normal, 83 == 2x6*2 */
+	uint8_t  cut;      /* 00 == normal, 83 == 2x6*2 */
 	uint8_t  unkb[5];
-	uint8_t  mode; /* 00 == fine, 80 == superfine */
+	uint8_t  mode;     /* 00 == fine, 80 == superfine */
 	uint8_t  unkc[11]; /* 00 [...] 00 01 */
 } __attribute__((packed));
 
 /* Fine Deep selection (9550 only) */
 struct mitsu9550_hdr3 {
-	uint8_t  cmd[4]; /* 1b 57 22 2e */
-	uint8_t  unk[7]; /* 00 40 00 [...] */
-	uint8_t  mode2;  /* 00 == normal, 01 == finedeep */
+	uint8_t  cmd[4];   /* 1b 57 22 2e */
+	uint8_t  unk[7];   /* 00 40 00 [...] */
+	uint8_t  mode2;    /* 00 == normal, 01 == finedeep */
 	uint8_t  null[38];
 } __attribute__((packed));
 
 /* Error policy? */
 struct mitsu9550_hdr4 {
-	uint8_t  cmd[4]; /* 1b 57 26 2e */
-	uint8_t  unk[46]; /* 00 70 00 00 00 00 00 00 01 01 00 [...] */
+	uint8_t  cmd[4];   /* 1b 57 26 2e */
+	uint8_t  unk[46];  /* 00 70 00 00 00 00 00 00 01 01 00 [...] */
 } __attribute__((packed));
 
 /* Data plane header */
 struct mitsu9550_plane {
-	uint8_t  cmd[4]; /* 1b 5a 54 XX */  /* XX == 0x10 if 16bpp, 0x00 for 8bpp */
+	uint8_t  cmd[4];     /* 1b 5a 54 XX */  /* XX == 0x10 if 16bpp, 0x00 for 8bpp */
+	uint16_t col_offset; /* BE, normally 0, where we start dumping data */
 	uint16_t row_offset; /* BE, normally 0, where we start dumping data */
-	uint16_t null;       /* ??? */
 	uint16_t cols;       /* BE */
 	uint16_t rows;       /* BE */
 } __attribute__((packed));
 
+/* CP98xx Tabular Data, as stored in data file! */
+struct mitsu98xx_data {
+	/* @    0 */	uint16_t GNMby[256];     /* BGR Order uncertain */
+	/* @  512 */	uint16_t GNMgm[256];
+	/* @ 1024 */    uint16_t GNMrc[256];
+	/* @ 1536 */    uint16_t unk_sharp[20];  /* Actual format is: u16, u16[9], u16, u16[9] */
+	/* @ 1576 */    double   GammaAdj[3];    /* Assumed to be same order as tables (BGR?) */
+	/* @ 1600 */	struct {
+		/* @    0 */	double   unka[256];
+		/* @ 2048 */	double   unkb[256];
+		/* @ 4096 */	uint32_t unkc[10];
+		/* @ 4136 */	double   unkd[256];
+		/* @ 6184 */	double   unke[256]; // *= sharp->coef[X]
+		/* @ 8232 */	uint32_t unkf[10];
+		/* @ 8272 */	double   unkg[256];
+		/* @10320 */
+			} WMAM;
+	/* @11920 */	double   sharp_coef[11]; /* 0 is off, 1-10 are the levels.  Default is 5. [4 in settings] */
+	/* @12008 */	uint32_t unk_kh[3];
+	/* @12020 */	uint8_t  KH[2048];
+	/* @14068 */
+} __attribute__((packed));
+
+struct mitsu98xx_tables {
+	struct mitsu98xx_data superfine;
+	struct mitsu98xx_data fine_std;
+	struct mitsu98xx_data fine_hg;
+} __attribute__((packed));
+
+/* Command header */
 struct mitsu9550_cmd {
 	uint8_t cmd[4];
 } __attribute__((packed));
 
-/* Private data stucture */
-struct mitsu9550_ctx {
-	struct libusb_device_handle *dev;
-	uint8_t endp_up;
-	uint8_t endp_down;
-	int type;
-	int is_s;
-
+/* Private data structure */
+struct mitsu9550_printjob {
 	uint8_t *databuf;
 	uint32_t datalen;
 
 	uint16_t rows;
 	uint16_t cols;
 	uint32_t plane_len;
+	int is_raw;
 
-	uint16_t last_donor;
-	uint16_t last_remain;
-	int marker_reported;
+	int copies;
 
 	/* Parse headers separately */
 	struct mitsu9550_hdr1 hdr1;
@@ -132,6 +229,28 @@ struct mitsu9550_ctx {
 	int hdr3_present;
 	struct mitsu9550_hdr4 hdr4;
 	int hdr4_present;
+};
+
+struct mitsu9550_ctx {
+	struct libusb_device_handle *dev;
+	uint8_t endp_up;
+	uint8_t endp_down;
+	int type;
+	int is_s;
+	int is_98xx;
+
+	struct marker marker;
+
+	/* CP98xx stuff */
+	void *dl_handle;
+	lib70x_getapiversionFN GetAPIVersion;
+	Get3DColorTableFN Get3DColorTable;
+	Load3DColorTableFN Load3DColorTable;
+	Destroy3DColorTableFN Destroy3DColorTable;
+	DoColorConvFN DoColorConv;
+
+	struct CColorConv3D *lut;
+	struct mitsu98xx_tables *m98xxdata;
 };
 
 /* Printer data structures */
@@ -164,11 +283,13 @@ struct mitsu9550_status {
 } __attribute__((packed));
 
 struct mitsu9550_status2 {
-	uint8_t  hdr[2]; /* 21 2e */
-	uint8_t  unk[39];
+	uint8_t  hdr[2]; /* 21 2e / 24 2e  on 9550/9800 */
+	uint8_t  unk[40];
 	uint16_t remain; /* BE, media remaining */
 	uint8_t  unkb[4]; /* 0a 00 00 01 */
 } __attribute__((packed));
+
+static int mitsu9550_main_loop(void *vctx, const void *vjob);
 
 #define CMDBUF_LEN   64
 #define READBACK_LEN 128
@@ -178,41 +299,24 @@ struct mitsu9550_status2 {
 		struct mitsu9550_status *sts = (struct mitsu9550_status*) rdbuf;\
 		/* struct mitsu9550_status2 *sts2 = (struct mitsu9550_status2*) rdbuf; */ \
 		struct mitsu9550_media *media = (struct mitsu9550_media *) rdbuf; \
-		uint16_t donor, remain;	\
+		uint16_t donor; \
 		/* media */ \
 		ret = mitsu9550_get_status(ctx, rdbuf, 0, 0, 1); \
 		if (ret < 0) \
 			return CUPS_BACKEND_FAILED; \
 		\
-		/* Tell CUPS about the consumables we report */ \
-		if (!ctx->marker_reported) { \
-			ctx->marker_reported = 1; \
-			ATTR("marker-colors=#00FFFF#FF00FF#FFFF00\n");	\
-			ATTR("marker-high-levels=100\n"); \
-			ATTR("marker-low-levels=10\n");	\
-			ATTR("marker-names='%s'\n", mitsu9550_media_types(media->type, ctx->is_s)); \
-			ATTR("marker-types=ribbonWax\n"); \
+		donor = be16_to_cpu(media->remain); \
+		if (donor != ctx->marker.levelnow) { \
+			ctx->marker.levelnow = donor; \
+			dump_markers(&ctx->marker, 1, 0); \
 		} \
-		\
 		/* Sanity-check media response */ \
 		if (media->remain == 0 || media->max == 0) { \
 			ERROR("Printer out of media!\n"); \
-			ATTR("marker-levels=%d\n", 0); \
 			return CUPS_BACKEND_HOLD; \
 		} \
-		remain = be16_to_cpu(media->remain); \
-		donor = be16_to_cpu(media->max); \
-		donor = remain/donor; \
-		if (donor != ctx->last_donor) { \
-			ctx->last_donor = donor; \
-			ATTR("marker-levels=%u\n", donor); \
-		} \
-		if (remain != ctx->last_remain) { \
-			ctx->last_remain = remain; \
-			ATTR("marker-message=\"%u prints remaining on '%s' ribbon\"\n", remain, mitsu9550_media_types(media->type, ctx->is_s)); \
-		} \
-		if (validate_media(ctx->type, media->type, ctx->cols, ctx->rows)) { \
-			ERROR("Incorrect media (%u) type for printjob (%ux%u)!\n", media->type, ctx->cols, ctx->rows); \
+		if (validate_media(ctx->type, media->type, job->cols, job->rows)) { \
+			ERROR("Incorrect media (%u) type for printjob (%ux%u)!\n", media->type, job->cols, job->rows); \
 			return CUPS_BACKEND_HOLD; \
 		} \
 		/* status2 */ \
@@ -236,6 +340,87 @@ struct mitsu9550_status2 {
 		} \
 	} while (0);
 
+static void mitsu98xx_dogamma(uint8_t *src, uint16_t *dest, uint8_t plane,
+			      uint16_t *table, uint32_t len)
+{
+	src += plane;
+	while(len--) {
+		*dest++ = cpu_to_be16(table[*src]);
+		src += 3;
+	}
+}
+
+static int mitsu98xx_fillmatte(struct mitsu9550_printjob *job)
+{
+	int fd, i;
+	uint32_t j, remain;
+
+	DEBUG("Reading %d bytes of matte data from disk (%d/%d)\n", job->cols * job->rows * 2, job->cols, LAMINATE_STRIDE);
+#ifdef __OS2__
+	fd = open(MITSU_M98xx_LAMINATE_FILE, O_RDONLY | O_BINARY);
+#else
+	fd = open(MITSU_M98xx_LAMINATE_FILE, O_RDONLY);
+#endif
+	if (fd < 0) {
+		WARNING("Unable to open matte lamination data file '%s'\n", MITSU_M98xx_LAMINATE_FILE);
+		job->hdr1.matte = 0;
+		goto done;
+	}
+
+	/* Fill in the lamination plane header */
+	struct mitsu9550_plane *matte = (struct mitsu9550_plane *)(job->databuf + job->datalen);
+	matte->cmd[0] = 0x1b;
+	matte->cmd[1] = 0x5a;
+	matte->cmd[2] = 0x54;
+	matte->cmd[3] = 0x10;
+	matte->row_offset = 0;
+	matte->col_offset = 0;
+	matte->cols = cpu_to_be16(job->hdr1.cols);
+	matte->rows = cpu_to_be16(job->hdr1.rows);
+	job->datalen += sizeof(struct mitsu9550_plane);
+
+	/* Read in the matte data plane */
+	for (j = 0 ; j < job->rows ; j++) {
+		remain = LAMINATE_STRIDE * 2;
+
+		/* Read one row of lamination data at a time */
+		while (remain) {
+			i = read(fd, job->databuf + job->datalen, remain);
+			if (i < 0)
+				return CUPS_BACKEND_CANCEL;
+			if (i == 0) {
+				/* We hit EOF, restart from beginning */
+				lseek(fd, 0, SEEK_SET);
+				continue;
+			}
+			job->datalen += i;
+			remain -= i;
+		}
+		/* Back off the buffer so we "wrap" on the print row. */
+		job->datalen -= ((LAMINATE_STRIDE - job->cols) * 2);
+	}
+	/* We're done! */
+	close(fd);
+
+	/* Fill in the lamination plane footer */
+	job->databuf[job->datalen++] = 0x1b;
+	job->databuf[job->datalen++] = 0x50;
+	job->databuf[job->datalen++] = 0x56;
+	job->databuf[job->datalen++] = 0x00;
+
+done:
+	return CUPS_BACKEND_OK;
+}
+
+#ifndef LUT_LEN
+#define LUT_LEN 14739
+#define COLORCONV_RGB 0
+#define COLORCONV_BGR 1
+#endif
+
+static int mitsu9550_get_status(struct mitsu9550_ctx *ctx, uint8_t *resp, int status, int status2, int media);
+static char *mitsu9550_media_types(uint8_t type, uint8_t is_s);
+
 static void *mitsu9550_init(void)
 {
 	struct mitsu9550_ctx *ctx = malloc(sizeof(struct mitsu9550_ctx));
@@ -245,35 +430,103 @@ static void *mitsu9550_init(void)
 	}
 	memset(ctx, 0, sizeof(struct mitsu9550_ctx));
 
+	DL_INIT();
+
 	return ctx;
 }
 
-static void mitsu9550_attach(void *vctx, struct libusb_device_handle *dev,
+static int mitsu9550_attach(void *vctx, struct libusb_device_handle *dev, int type,
 			    uint8_t endp_up, uint8_t endp_down, uint8_t jobid)
 {
 	struct mitsu9550_ctx *ctx = vctx;
-	struct libusb_device *device;
-	struct libusb_device_descriptor desc;
+	struct mitsu9550_media media;
 
 	UNUSED(jobid);
 
 	ctx->dev = dev;
 	ctx->endp_up = endp_up;
 	ctx->endp_down = endp_down;
-
-	device = libusb_get_device(dev);
-	libusb_get_device_descriptor(device, &desc);
-
-	ctx->type = lookup_printer_type(&mitsu9550_backend,
-					desc.idVendor, desc.idProduct);
+	ctx->type = type;
 
 	if (ctx->type == P_MITSU_9550S ||
 	    ctx->type == P_MITSU_9800S)
 		ctx->is_s = 1;
 
-	ctx->last_donor = ctx->last_remain = 65535;
+	if (ctx->type == P_MITSU_9800 ||
+	    ctx->type == P_MITSU_9800S ||
+	    ctx->type == P_MITSU_9810)
+		ctx->is_98xx = 1;
+
+	/* Attempt to open the library */
+#if defined(WITH_DYNAMIC)
+	if (!ctx->is_98xx) goto skip;
+
+	DEBUG("Attempting to load image processing library\n");
+	ctx->dl_handle = DL_OPEN(LIB_NAME_RE);
+	if (!ctx->dl_handle)
+		WARNING("Image processing library not found, using internal fallback code\n");
+	if (ctx->dl_handle) {
+		ctx->GetAPIVersion = DL_SYM(ctx->dl_handle, "lib70x_getapiversion");
+		if (!ctx->GetAPIVersion) {
+			ERROR("Problem resolving API Version symbol in imaging processing library, too old or not installed?\n");
+			DL_CLOSE(ctx->dl_handle);
+			ctx->dl_handle = NULL;
+			return CUPS_BACKEND_FAILED;
+		}
+		if (ctx->GetAPIVersion() != REQUIRED_LIB_APIVERSION) {
+			ERROR("Image processing library API version mismatch!\n");
+			DL_CLOSE(ctx->dl_handle);
+			ctx->dl_handle = NULL;
+			return CUPS_BACKEND_FAILED;
+		}
+
+		ctx->Get3DColorTable = DL_SYM(ctx->dl_handle, "CColorConv3D_Get3DColorTable");
+		ctx->Load3DColorTable = DL_SYM(ctx->dl_handle, "CColorConv3D_Load3DColorTable");
+		ctx->Destroy3DColorTable = DL_SYM(ctx->dl_handle, "CColorConv3D_Destroy3DColorTable");
+		ctx->DoColorConv = DL_SYM(ctx->dl_handle, "CColorConv3D_DoColorConv");
+		if (!ctx->Get3DColorTable || !ctx->Load3DColorTable ||
+		    !ctx->Destroy3DColorTable || !ctx->DoColorConv ) {
+			ERROR("Problem resolving symbols in imaging processing library\n");
+			DL_CLOSE(ctx->dl_handle);
+			ctx->dl_handle = NULL;
+			return CUPS_BACKEND_FAILED;
+		} else {
+			DEBUG("Image processing library successfully loaded\n");
+		}
+	}
+skip:
+#endif
+
+	if (test_mode < TEST_MODE_NOATTACH) {
+		if (mitsu9550_get_status(ctx, (uint8_t*) &media, 0, 0, 1))
+			return CUPS_BACKEND_FAILED;
+	} else {
+		int media_code = 0x2;
+		if (getenv("MEDIA_CODE"))
+			media_code = atoi(getenv("MEDIA_CODE")) & 0xf;
+
+		media.max = cpu_to_be16(400);
+		media.remain = cpu_to_be16(330);
+		media.type = media_code;
+	}
+
+	ctx->marker.color = "#00FFFF#FF00FF#FFFF00";
+	ctx->marker.name = mitsu9550_media_types(media.type, ctx->is_s);
+	ctx->marker.levelmax = be16_to_cpu(media.max);
+	ctx->marker.levelnow = be16_to_cpu(media.remain);
+
+	return CUPS_BACKEND_OK;
 }
 
+static void mitsu9550_cleanup_job(const void *vjob)
+{
+	const struct mitsu9550_printjob *job = vjob;
+
+	if (job->databuf)
+		free(job->databuf);
+
+	free((void*)job);
+}
 
 static void mitsu9550_teardown(void *vctx) {
 	struct mitsu9550_ctx *ctx = vctx;
@@ -281,86 +534,104 @@ static void mitsu9550_teardown(void *vctx) {
 	if (!ctx)
 		return;
 
-	if (ctx->databuf)
-		free(ctx->databuf);
+	if (ctx->dl_handle) {
+		if (ctx->lut)
+			ctx->Destroy3DColorTable(ctx->lut);
+		if (ctx->m98xxdata)
+			free(ctx->m98xxdata);
+		DL_CLOSE(ctx->dl_handle);
+	}
+
 	free(ctx);
 }
 
-static int mitsu9550_read_parse(void *vctx, int data_fd) {
+static int mitsu9550_read_parse(void *vctx, const void **vjob, int data_fd, int copies) {
 	struct mitsu9550_ctx *ctx = vctx;
 	uint8_t buf[sizeof(struct mitsu9550_hdr1)];
 	int remain, i;
 	uint32_t planelen = 0;
 
+	struct mitsu9550_printjob *job = NULL;
+
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
 
-	if (ctx->databuf) {
-		free(ctx->databuf);
-		ctx->databuf = NULL;
+	job = malloc(sizeof(*job));
+	if (!job) {
+		ERROR("Memory allocation failure!\n");
+		return CUPS_BACKEND_RETRY_CURRENT;
 	}
-
-	ctx->hdr1_present = 0;
-	ctx->hdr2_present = 0;
-	ctx->hdr3_present = 0;
-	ctx->hdr4_present = 0;
+	memset(job, 0, sizeof(*job));
+	job->is_raw = 1;
 
 top:
 	/* Read in initial header */
 	remain = sizeof(buf);
 	while (remain > 0) {
 		i = read(data_fd, buf + sizeof(buf) - remain, remain);
-		if (i == 0)
+		if (i == 0) {
+			mitsu9550_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
-		if (i < 0)
+		}
+		if (i < 0) {
+			mitsu9550_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
+		}
 		remain -= i;
 	}
 
 	/* Sanity check */
 	if (buf[0] != 0x1b || buf[1] != 0x57 || buf[3] != 0x2e) {
-		if (!ctx->hdr1_present || !ctx->hdr2_present) {
-			ERROR("Unrecognized data format!\n");
+		if (!job->hdr1_present || !job->hdr2_present) {
+			ERROR("Unrecognized data format (%02x%02x%02x%02x)!\n",
+			      buf[0], buf[1], buf[2], buf[3]);
+			mitsu9550_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
-		} else if (buf[0] == 0x1b && buf[1] == 0x5a &&
+		} else if (buf[0] == 0x1b &&
+			   buf[1] == 0x5a &&
 			   buf[2] == 0x54) {
 
 			/* We're in the data portion now */
 			if (buf[3] == 0x10)
 				planelen *= 2;
+			else if (ctx->is_98xx && buf[3] == 0x80)
+				job->is_raw = 0;
 
 			goto hdr_done;
 		} else {
-			ERROR("Unrecognized data block!\n");
+			ERROR("Unrecognized data block (%02x%02x%02x%02x)!\n",
+			      buf[0], buf[1], buf[2], buf[3]);
+			mitsu9550_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
 		}
 	}
 
 	switch(buf[2]) {
 	case 0x20: /* header 1 */
-		memcpy(&ctx->hdr1, buf, sizeof(ctx->hdr1));
-		ctx->hdr1_present = 1;
+		memcpy(&job->hdr1, buf, sizeof(job->hdr1));
+		job->hdr1_present = 1;
 
 		/* Work out printjob size */
-		ctx->rows = be16_to_cpu(ctx->hdr1.rows);
-		ctx->cols = be16_to_cpu(ctx->hdr1.cols);
-		planelen = ctx->rows * ctx->cols;
+		job->rows = be16_to_cpu(job->hdr1.rows);
+		job->cols = be16_to_cpu(job->hdr1.cols);
+		planelen = job->rows * job->cols;
 
 		break;
 	case 0x21: /* header 2 */
-		memcpy(&ctx->hdr2, buf, sizeof(ctx->hdr2));
-		ctx->hdr2_present = 1;
+		memcpy(&job->hdr2, buf, sizeof(job->hdr2));
+		job->hdr2_present = 1;
 		break;
 	case 0x22: /* header 3 */
-		memcpy(&ctx->hdr3, buf, sizeof(ctx->hdr3));
-		ctx->hdr3_present = 1;
+		memcpy(&job->hdr3, buf, sizeof(job->hdr3));
+		job->hdr3_present = 1;
 		break;
 	case 0x26: /* header 4 */
-		memcpy(&ctx->hdr4, buf, sizeof(ctx->hdr4));
-		ctx->hdr4_present = 1;
+		memcpy(&job->hdr4, buf, sizeof(job->hdr4));
+		job->hdr4_present = 1;
 		break;
 	default:
 		ERROR("Unrecognized header format (%02x)!\n", buf[2]);
+		mitsu9550_cleanup_job(job);
 		return CUPS_BACKEND_CANCEL;
 	}
 
@@ -369,17 +640,71 @@ top:
 
 hdr_done:
 
-	/* We have three planes and the final terminator to read */
-	remain = 3 * (planelen + sizeof(struct mitsu9550_plane)) + sizeof(struct mitsu9550_cmd);
+	/* Read in CP98xx data tables if necessary */
+	if (ctx->is_98xx && !job->is_raw && !ctx->m98xxdata) {
+		int ret;
+		ctx->m98xxdata = malloc(DATATABLE_SIZE);
+		if (!ctx->m98xxdata) {
+			ERROR("Memory allocation Failure!\n");
+			mitsu9550_cleanup_job(job);
+			return CUPS_BACKEND_RETRY_CURRENT;
+		}
+
+		DEBUG("Reading in 98xx data from disk\n");
+		if ((ret = dyesub_read_file(MITSU_M98xx_DATATABLE_FILE, ctx->m98xxdata, DATATABLE_SIZE, NULL))) {
+			ERROR("Unable to read 98xx data table file '%s'\n", MITSU_M98xx_DATATABLE_FILE);
+			free(ctx->m98xxdata);
+			return ret;
+		}
+
+		/* Byteswap data table to native endianness, if necessary */
+#if (__BYTE_ORDER == __LITTLE_ENDIAN)
+		int j;
+		struct mitsu98xx_data *ptr = &ctx->m98xxdata->superfine;
+		for (j = 0 ; j < 3 ; j++) {
+			for (i = 3 ; i < 3 ; i++) {
+				ptr->GammaAdj[i] = be64_to_cpu(ptr->GammaAdj[i]);
+				ptr->unk_kh[i] = be32_to_cpu(ptr->unk_kh[i]);
+			}
+			for (i = 0 ; i < 10 ; i++) {
+				ptr->WMAM.unkc[i] = be32_to_cpu(ptr->WMAM.unkc[i]);
+				ptr->WMAM.unkf[i] = be32_to_cpu(ptr->WMAM.unkf[i]);
+			}
+			for (i = 0 ; i < 11 ; i++) {
+				ptr->sharp_coef[i] = be64_to_cpu(ptr->sharp_coef[i]);
+			}
+			for (i = 0 ; i < 20 ; i++) {
+				ptr->unk_sharp[i] = be16_to_cpu(ptr->unk_sharp[i]);
+			}
+			for (i = 0 ; i < 256 ; i++) {
+				ptr->WMAM.unka[i] = be64_to_cpu(ptr->WMAM.unka[i]);
+				ptr->WMAM.unkb[i] = be64_to_cpu(ptr->WMAM.unkb[i]);
+				ptr->WMAM.unkd[i] = be64_to_cpu(ptr->WMAM.unkd[i]);
+				ptr->WMAM.unke[i] = be64_to_cpu(ptr->WMAM.unke[i]);
+				ptr->WMAM.unkg[i] = be64_to_cpu(ptr->WMAM.unkg[i]);
+
+				ptr->GNMby[i] = be16_to_cpu(ptr->GNMby[i]);
+				ptr->GNMgm[i] = be16_to_cpu(ptr->GNMgm[i]);
+				ptr->GNMrc[i] = be16_to_cpu(ptr->GNMrc[i]);
+
+			}
+			// XXX TODO: KH[2048]
+			ptr++;
+		}
+#endif
+	}
+
+	if (job->is_raw) {
+		/* We have three planes + headers and the final terminator to read */
+		remain = 3 * (planelen + sizeof(struct mitsu9550_plane)) + sizeof(struct mitsu9550_cmd);
+	} else {
+		/* We have one plane + header and the final terminator to read */
+		remain = planelen * 3 + sizeof(struct mitsu9550_plane) + sizeof(struct mitsu9550_cmd);
+	}
 
 	/* Mitsu9600 windows spool uses more, smaller blocks, but plane data is the same */
 	if (ctx->type == P_MITSU_9600) {
 		remain += 128 * sizeof(struct mitsu9550_plane); /* 39 extra seen on 4x6" */
-	}
-
-	/* Don't forget the matte plane! */
-	if (ctx->hdr1.matte) {
-		remain += planelen + sizeof(struct mitsu9550_plane) + sizeof(struct mitsu9550_cmd);
 	}
 
 	/* 9550S/9800S doesn't typically sent over hdr4! */
@@ -388,15 +713,26 @@ hdr_done:
 		/* XXX Has to do with error policy, but not sure what.
 		   Mitsu9550-S/9800-S will set this based on a command,
 		   but it's not part of the standard job spool */
-		ctx->hdr4_present = 0;
+		job->hdr4_present = 0;
+	}
+
+	/* Disable matte if the printer doesn't support it */
+	if (job->hdr1.matte) {
+		if (ctx->type != P_MITSU_9810) {
+			WARNING("Matte not supported on this printer, disabling\n");
+			job->hdr1.matte = 0;
+		} else if (job->is_raw) {
+			remain += planelen + sizeof(struct mitsu9550_plane) + sizeof(struct mitsu9550_cmd);
+		}
 	}
 
 	/* Allocate buffer for the payload */
-	ctx->datalen = 0;
-	ctx->databuf = malloc(remain);
-	if (!ctx->databuf) {
+	job->datalen = 0;
+	job->databuf = malloc(remain);
+	if (!job->databuf) {
 		ERROR("Memory allocation failure!\n");
-		return CUPS_BACKEND_FAILED;
+		mitsu9550_cleanup_job(job);
+		return CUPS_BACKEND_RETRY_CURRENT;
 	}
 
 	/* Load up the data blocks.*/
@@ -408,7 +744,9 @@ hdr_done:
 		if (plane->cmd[0] != 0x1b ||
 		    plane->cmd[1] != 0x5a ||
 		    plane->cmd[2] != 0x54) {
-			ERROR("Unexpected data read, aborting job\n");
+			ERROR("Unrecognized data read (%02x%02x%02x%02x)!\n",
+			      plane->cmd[0], plane->cmd[1], plane->cmd[2], plane->cmd[3]);
+			mitsu9550_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
 		}
 
@@ -416,20 +754,26 @@ hdr_done:
 		planelen = be16_to_cpu(plane->rows) * be16_to_cpu(plane->cols);
 		if (plane->cmd[3] == 0x10)
 			planelen *= 2;
+		if (plane->cmd[3] == 0x80)
+			planelen *= 3;
 
 		/* Copy plane header into buffer */
-		memcpy(ctx->databuf + ctx->datalen, buf, sizeof(buf));
-		ctx->datalen += sizeof(buf);
+		memcpy(job->databuf + job->datalen, buf, sizeof(buf));
+		job->datalen += sizeof(buf);
 		planelen -= sizeof(buf) - sizeof(struct mitsu9550_plane);
 
 		/* Read in the spool data */
 		while(planelen > 0) {
-			i = read(data_fd, ctx->databuf + ctx->datalen, planelen);
-			if (i == 0)
+			i = read(data_fd, job->databuf + job->datalen, planelen);
+			if (i == 0) {
+				mitsu9550_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
-			if (i < 0)
+			}
+			if (i < 0) {
+				mitsu9550_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
-			ctx->datalen += i;
+			}
+			job->datalen += i;
 			planelen -= i;
 		}
 
@@ -438,44 +782,98 @@ hdr_done:
 		    - Job footer (4B)
 		*/
 		i = read(data_fd, buf, 4);
-		if (i == 0)
+		if (i == 0) {
+			mitsu9550_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
-		if (i < 0)
+		}
+		if (i < 0) {
+			mitsu9550_cleanup_job(job);
 			return CUPS_BACKEND_CANCEL;
+		}
 
 		/* Is this a "job end" marker? */
-		if (plane->cmd[0] != 0x1b ||
-		    plane->cmd[1] != 0x5a ||
-		    plane->cmd[2] != 0x54) {
+		if (plane->cmd[0] == 0x1b &&
+		    plane->cmd[1] == 0x50 &&
+		    plane->cmd[3] == 0x00) {
 			/* store it in the buffer */
-			memcpy(ctx->databuf + ctx->datalen, buf, 4);
-			ctx->datalen += 4;
+			memcpy(job->databuf + job->datalen, buf, 4);
+			job->datalen += 4;
 
-			/* Unless we have a matte plane following, we're done */
-			if (!ctx->hdr1.matte)
+			/* Unless we have a raw matte plane following,
+			   we're done */
+			if (job->hdr1.matte != 0x01 ||
+			    !job->is_raw)
 				break;
-			planelen = sizeof(buf);
+			remain = sizeof(buf);
 		} else {
 			/* It's part of a block header, mark what we've read */
-			planelen = sizeof(buf) - 4;
+			remain = sizeof(buf) - 4;
 		}
 
 		/* Read in the rest of the header */
-		while (planelen > 0) {
-			i = read(data_fd, buf + sizeof(buf) - planelen, planelen);
-			if (i == 0)
+		while (remain > 0) {
+			i = read(data_fd, buf + sizeof(buf) - remain, remain);
+			if (i == 0) {
+				mitsu9550_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
-			if (i < 0)
+			}
+			if (i < 0) {
+				mitsu9550_cleanup_job(job);
 				return CUPS_BACKEND_CANCEL;
-			planelen -= i;
+			}
+			remain -= i;
 		}
 	}
 
-	/* Disable matte if the printer doesn't support it */
-	if (ctx->hdr1.matte && ctx->type != P_MITSU_9810) {
-		WARNING("Matte not supported on this printer, disabling\n");
-		ctx->hdr1.matte = 0;
+	/* Apply LUT, if job calls for it.. */
+	if (ctx->is_98xx && !job->is_raw && job->hdr2.unkc[9]) {
+
+		if (!ctx->dl_handle) {
+			// XXXFALLBACK write fallback code?
+			ERROR("!!! Image Processing Library not found, aborting!\n");
+			mitsu9550_cleanup_job(job);
+			return CUPS_BACKEND_CANCEL;
+		}
+
+		if (!ctx->lut) {
+			uint8_t *lbuf = malloc(LUT_LEN);
+			if (!lbuf) {
+				ERROR("Memory allocation failure!\n");
+				mitsu9550_cleanup_job(job);
+				return CUPS_BACKEND_RETRY_CURRENT;
+			}
+			if (ctx->Get3DColorTable(lbuf, MITSU_M98xx_LUT_FILE)) {
+				ERROR("Unable to open LUT file '%s'\n", MITSU_M98xx_LUT_FILE);
+				mitsu9550_cleanup_job(job);
+				return CUPS_BACKEND_CANCEL;
+			}
+			ctx->lut = ctx->Load3DColorTable(lbuf);
+			free(lbuf);
+			if (!ctx->lut) {
+				ERROR("Unable to parse LUT\n");
+				mitsu9550_cleanup_job(job);
+				return CUPS_BACKEND_CANCEL;
+			}
+		}
+
+		DEBUG("Running print data through 3D LUT\n");
+		ctx->DoColorConv(ctx->lut, job->databuf + sizeof(struct mitsu9550_plane),
+				 job->cols, job->rows, job->cols * 3, COLORCONV_BGR);
+		job->hdr2.unkc[9] = 0;
 	}
+
+	/* Update printjob header to reflect number of requested copies */
+	if (job->hdr2_present) {
+		copies = 1;
+		job->hdr2.copies = cpu_to_be16(copies);
+	}
+	job->copies = copies;
+
+	/* All further work is in main loop */
+	if (test_mode >= TEST_MODE_NOPRINT)
+		mitsu9550_main_loop(ctx, job);
+
+	*vjob = job;
 
 	return CUPS_BACKEND_OK;
 }
@@ -526,7 +924,7 @@ static char *mitsu9550_media_types(uint8_t type, uint8_t is_s)
 		}
 		return NULL;
 	}
-	
+
 	switch (type & 0xf) { /* values can be 0x0? or 0x4? */
 	case 0x01:
 		return "CK9035 (3.5x5)";
@@ -556,7 +954,7 @@ static int validate_media(int type, int media, int cols, int rows)
 				return 1;
 			break;
 		case 0x02: /* 4x6 */
-		case 0x03: /* 4x6 postcard */ 
+		case 0x03: /* 4x6 postcard */
 			if (cols != 2152)
 				return 1;
 			if (rows != 1416 && rows != 1184 && rows != 1240)
@@ -707,7 +1105,7 @@ static int validate_media(int type, int media, int cols, int rows)
 	case P_MITSU_9800S:
 		switch(media & 0xf) {
 		case 0x02: /* 4x6 */
-		case 0x03: /* 4x6 postcard */ 
+		case 0x03: /* 4x6 postcard */
 			if (cols != 1868 && rows != 1228)
 				return 1;
 			break;
@@ -740,22 +1138,120 @@ static int validate_media(int type, int media, int cols, int rows)
 	return 0;
 }
 
-static int mitsu9550_main_loop(void *vctx, int copies) {
+static int mitsu9550_main_loop(void *vctx, const void *vjob) {
 	struct mitsu9550_ctx *ctx = vctx;
 	struct mitsu9550_cmd cmd;
 	uint8_t rdbuf[READBACK_LEN];
 	uint8_t *ptr;
 
 	int ret;
+#if 0
+	int copies;
+#endif
+
+//	const struct mitsu9550_printjob *job = vjob;
+	struct mitsu9550_printjob *job = (struct mitsu9550_printjob*) vjob; // XXX not good.
 
 	if (!ctx)
 		return CUPS_BACKEND_FAILED;
-
-	/* Update printjob header to reflect number of requested copies */
-	ctx->hdr2.copies = cpu_to_be16(copies);
+	if (!job)
+		return CUPS_BACKEND_FAILED;
 
 	/* Okay, let's do this thing */
-	ptr = ctx->databuf;
+	ptr = job->databuf;
+
+#if 0
+	/* If hdr2 is not present, we have to generate copies ourselves! */
+	if (job->hdr2_present)
+		copies = job->copies;
+	// XXX..
+#endif
+
+	/* Do the 98xx processing here */
+	if (!ctx->is_98xx || job->is_raw)
+		goto bypass;
+
+	uint8_t *newbuf;
+	uint32_t newlen = 0;
+	struct mitsu98xx_data *table;
+	int i, remain, planelen;
+
+	planelen = job->rows * job->cols * 2;
+	remain = (job->hdr1.matte ? 4 : 3) * (planelen + sizeof(struct mitsu9550_plane)) + sizeof(struct mitsu9550_cmd) * (job->hdr1.matte? 2 : 1) + LAMINATE_STRIDE * 2;
+	newbuf = malloc(remain);
+	if (!newbuf) {
+		ERROR("Memory allocation Failure!\n");
+		return CUPS_BACKEND_RETRY_CURRENT;
+	}
+	switch (job->hdr2.mode) {
+	case 0x80:
+		table = &ctx->m98xxdata->superfine;
+		break;
+	case 0x11:
+		table = &ctx->m98xxdata->fine_hg;
+		job->hdr2.mode = 0x10;
+		break;
+	case 0x10:
+	default:
+		table = &ctx->m98xxdata->fine_std;
+		break;
+	}
+
+	DEBUG("Applying 8bpp->12bpp Gamma Correction\n");
+	/* For B/Y plane */
+	memcpy(newbuf + newlen, job->databuf, sizeof(struct mitsu9550_plane));
+	newbuf[newlen + 3] = 0x10;  /* ie 16bpp data */
+	newlen += sizeof(struct mitsu9550_plane);
+	mitsu98xx_dogamma(job->databuf + sizeof(struct mitsu9550_plane),
+			  (uint16_t*) (newbuf + newlen),
+			  0,
+			  table->GNMby,
+			  planelen / 2);
+	newlen += planelen;
+
+	/* For G/M plane */
+	memcpy(newbuf + newlen, job->databuf, sizeof(struct mitsu9550_plane));
+	newbuf[newlen + 3] = 0x10;  /* ie 16bpp data */
+	newlen += sizeof(struct mitsu9550_plane);
+	mitsu98xx_dogamma(job->databuf + sizeof(struct mitsu9550_plane),
+			  (uint16_t*) (newbuf + newlen),
+			  1,
+			  table->GNMgm,
+			  planelen / 2);
+	newlen += planelen;
+
+	/* For R/C plane */
+	memcpy(newbuf + newlen, job->databuf, sizeof(struct mitsu9550_plane));
+	newbuf[newlen + 3] = 0x10;  /* ie 16bpp data */
+	newlen += sizeof(struct mitsu9550_plane);
+	mitsu98xx_dogamma(job->databuf + sizeof(struct mitsu9550_plane),
+			  (uint16_t*) (newbuf + newlen),
+			  2,
+			  table->GNMrc,
+			  planelen / 2);
+	newlen += planelen;
+
+	/* And finally, the job footer. */
+	memcpy(newbuf + newlen, job->databuf + sizeof(struct mitsu9550_plane) + planelen/2 * 3, sizeof(struct mitsu9550_cmd));
+	newlen += sizeof(struct mitsu9550_cmd);
+
+	/* Clean up, and move pointer to new buffer; */
+	free(job->databuf);
+	job->databuf = newbuf;
+	job->datalen = newlen;
+	ptr = job->databuf;
+
+	/* Now handle the matte plane generation */
+	if (job->hdr1.matte) {
+		if ((i = mitsu98xx_fillmatte(job))) {
+			return i;
+		}
+	}
+
+bypass:
+	/* Bypass */
+	if (test_mode >= TEST_MODE_NOPRINT)
+		return CUPS_BACKEND_OK;
 
 top:
 	if (ctx->is_s) {
@@ -809,56 +1305,47 @@ top:
 
 	/* Now it's time for the actual print job! */
 
-	if (ctx->is_s) {
-		cmd.cmd[0] = 0x1b;
-		cmd.cmd[1] = 0x44;
-		cmd.cmd[2] = 0;
-		cmd.cmd[3] = 0;
-		if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     (uint8_t*) &cmd, 4)))
-			return CUPS_BACKEND_FAILED;
-	}
-
 	QUERY_STATUS();
 
 	/* Send printjob headers from spool data */
-	if (ctx->hdr1_present)
+	if (job->hdr1_present)
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     (uint8_t*) &ctx->hdr1, sizeof(ctx->hdr1))))
+				     (uint8_t*) &job->hdr1, sizeof(job->hdr1))))
 			return CUPS_BACKEND_FAILED;
-	if (ctx->hdr2_present)
+	if (job->hdr2_present)
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     (uint8_t*) &ctx->hdr2, sizeof(ctx->hdr2))))
+				     (uint8_t*) &job->hdr2, sizeof(job->hdr2))))
 			return CUPS_BACKEND_FAILED;
-	if (ctx->hdr3_present)
+	if (job->hdr3_present)
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     (uint8_t*) &ctx->hdr3, sizeof(ctx->hdr3))))
+				     (uint8_t*) &job->hdr3, sizeof(job->hdr3))))
 			return CUPS_BACKEND_FAILED;
-	if (ctx->hdr4_present)
+	if (job->hdr4_present)
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
-				     (uint8_t*) &ctx->hdr4, sizeof(struct mitsu9550_hdr4))))
-			return CUPS_BACKEND_FAILED;		
-	
+				     (uint8_t*) &job->hdr4, sizeof(struct mitsu9550_hdr4))))
+			return CUPS_BACKEND_FAILED;
+
 	if (ctx->is_s) {
-		/* Send "start data" command */
+		/* I think this a "clear memory' command...? */
 		cmd.cmd[0] = 0x1b;
 		cmd.cmd[1] = 0x5a;
 		cmd.cmd[2] = 0x43;
 		cmd.cmd[3] = 0x00;
-		
+
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     (uint8_t*) &cmd, sizeof(cmd))))
 			return CUPS_BACKEND_FAILED;
 	}
-	
+
 	/* Send over plane data */
-	while(1) {
+	while(ptr < (job->databuf + job->datalen)) {
 		struct mitsu9550_plane *plane = (struct mitsu9550_plane *)ptr;
-		uint32_t planelen = be16_to_cpu(plane->rows) * be16_to_cpu(plane->cols);
 		if (plane->cmd[0] != 0x1b ||
 		    plane->cmd[1] != 0x5a ||
 		    plane->cmd[2] != 0x54)
 			break;
+
+		planelen = be16_to_cpu(plane->rows) * be16_to_cpu(plane->cols);
 		if (plane->cmd[3] == 0x10)
 			planelen *= 2;
 
@@ -877,37 +1364,30 @@ top:
 		struct mitsu9550_status *sts = (struct mitsu9550_status*) rdbuf;
 //		struct mitsu9550_status2 *sts2 = (struct mitsu9550_status2*) rdbuf;
 		struct mitsu9550_media *media = (struct mitsu9550_media *) rdbuf;
-		uint16_t donor, remain;
-		
+		uint16_t donor;
+
 		ret = mitsu9550_get_status(ctx, rdbuf, 0, 0, 1); // media
 		if (ret < 0)
 			return CUPS_BACKEND_FAILED;
 
+		donor = be16_to_cpu(media->remain);
+		if (donor != ctx->marker.levelnow) {
+			ctx->marker.levelnow = donor;
+			dump_markers(&ctx->marker, 1, 0);
+		}
 		/* Sanity-check media response */
 		if (media->remain == 0 || media->max == 0) {
 			ERROR("Printer out of media!\n");
-			ATTR("marker-levels=%d\n", 0);
 			return CUPS_BACKEND_HOLD;
-		}
-		remain = be16_to_cpu(media->remain);
-		donor = be16_to_cpu(media->max);
-		donor = remain/donor;
-		if (donor != ctx->last_donor) {
-			ctx->last_donor = donor;
-			ATTR("marker-levels=%u\n", donor);
-		}
-		if (remain != ctx->last_remain) {
-			ctx->last_remain = remain;
-			ATTR("marker-message=\"%u prints remaining on '%s' ribbon\"\n", remain, mitsu9550_media_types(media->type, ctx->is_s));
 		}
 		ret = mitsu9550_get_status(ctx, rdbuf, 0, 1, 0); // status2
 		if (ret < 0)
 			return CUPS_BACKEND_FAILED;
-		
+
 		ret = mitsu9550_get_status(ctx, rdbuf, 1, 0, 0); // status
 		if (ret < 0)
 			return CUPS_BACKEND_FAILED;
-		
+
 		/* Make sure we're ready to proceed */
 		if (sts->sts5 != 0) {
 			ERROR("Unexpected response (sts5 %02x)\n", sts->sts5);
@@ -952,9 +1432,9 @@ top:
 	}
 
 	/* Don't forget the 9810's matte plane */
-	if (ctx->hdr1.matte) {
+	if (job->hdr1.matte) {
 		struct mitsu9550_plane *plane = (struct mitsu9550_plane *)ptr;
-		uint32_t planelen = be16_to_cpu(plane->rows) * be16_to_cpu(plane->cols);
+		planelen = be16_to_cpu(plane->rows) * be16_to_cpu(plane->cols);
 
 		if (plane->cmd[3] == 0x10)
 			planelen *= 2;
@@ -973,7 +1453,7 @@ top:
 		if ((ret = send_data(ctx->dev, ctx->endp_down,
 				     ptr, sizeof(cmd))))
 			return CUPS_BACKEND_FAILED;
-		ptr += sizeof(cmd);
+//		ptr += sizeof(cmd);
 	}
 
 	/* Status loop, run until printer reports completion */
@@ -981,28 +1461,21 @@ top:
 		struct mitsu9550_status *sts = (struct mitsu9550_status*) rdbuf;
 //		struct mitsu9550_status2 *sts2 = (struct mitsu9550_status2*) rdbuf;
 		struct mitsu9550_media *media = (struct mitsu9550_media *) rdbuf;
-		uint16_t donor, remain;
+		uint16_t donor;
 
 		ret = mitsu9550_get_status(ctx, rdbuf, 0, 0, 1); // media
 		if (ret < 0)
 			return CUPS_BACKEND_FAILED;
 
+		donor = be16_to_cpu(media->remain);
+		if (donor != ctx->marker.levelnow) {
+			ctx->marker.levelnow = donor;
+			dump_markers(&ctx->marker, 1, 0);
+		}
 		/* Sanity-check media response */
 		if (media->remain == 0 || media->max == 0) {
 			ERROR("Printer out of media!\n");
-			ATTR("marker-levels=%d\n", 0);
 			return CUPS_BACKEND_HOLD;
-		}
-		remain = be16_to_cpu(media->remain);
-		donor = be16_to_cpu(media->max);
-		donor = remain/donor;
-		if (donor != ctx->last_donor) {
-			ctx->last_donor = donor;
-			ATTR("marker-levels=%u\n", donor);
-		}
-		if (remain != ctx->last_remain) {
-			ctx->last_remain = remain;
-			ATTR("marker-message=\"%u prints remaining on '%s' ribbon\"\n", remain, mitsu9550_media_types(media->type, ctx->is_s));
 		}
 		ret = mitsu9550_get_status(ctx, rdbuf, 0, 1, 0); // status2
 		if (ret < 0)
@@ -1094,7 +1567,7 @@ static int mitsu9550_query_status2(struct mitsu9550_ctx *ctx)
 {
 	struct mitsu9550_status2 resp;
 	int ret;
-	
+
 	ret = mitsu9550_get_status(ctx, (uint8_t*) &resp, 0, 1, 0);
 
 	if (!ret)
@@ -1121,13 +1594,13 @@ static int mitsu9550_query_serno(struct libusb_device_handle *dev, uint8_t endp_
 
 	ret = read_data(dev, endp_up,
 			rdbuf, READBACK_LEN, &num);
-	
+
 	if (ret < 0)
 		return CUPS_BACKEND_FAILED;
 
 	if ((unsigned int)num < sizeof(cmd) + 1) /* Short read */
 		return CUPS_BACKEND_FAILED;
-	
+
 	if (rdbuf[0] != 0xe4 ||
 	    rdbuf[1] != 0x72 ||
 	    rdbuf[2] != 0x6e ||
@@ -1140,7 +1613,7 @@ static int mitsu9550_query_serno(struct libusb_device_handle *dev, uint8_t endp_
 		WARNING("Short serno read! (%d vs %u)\r\n",
 			num, rdbuf[4]);
 
-	/* model and serial number are encoded as 16-bit unicode, 
+	/* model and serial number are encoded as 16-bit unicode,
 	   little endian, separated by spaces. */
 	i = num;
 	ptr = rdbuf + 5;
@@ -1152,7 +1625,17 @@ static int mitsu9550_query_serno(struct libusb_device_handle *dev, uint8_t endp_
 		i -= 2;
 	}
 	*buf = 0; /* Null-terminate the returned string */
-	
+
+	return ret;
+}
+
+static int mitsu9550_cancel_job(struct mitsu9550_ctx *ctx)
+{
+	int ret;
+
+	uint8_t buf[2] = { 0x1b, 0x44 };
+	ret = send_data(ctx->dev, ctx->endp_down, buf, sizeof(buf));
+
 	return ret;
 }
 
@@ -1160,6 +1643,7 @@ static void mitsu9550_cmdline(void)
 {
 	DEBUG("\t\t[ -m ]           # Query media\n");
 	DEBUG("\t\t[ -s ]           # Query status\n");
+	DEBUG("\t\t[ -X ]           # Cancel current job\n");
 }
 
 static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
@@ -1170,7 +1654,7 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 	if (!ctx)
 		return -1;
 
-	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "ms")) >= 0) {
+	while ((i = getopt(argc, argv, GETOPT_LIST_GLOBAL "msX")) >= 0) {
 		switch(i) {
 		GETOPT_PROCESS_GLOBAL
 		case 'm':
@@ -1180,6 +1664,9 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 			j = mitsu9550_query_status(ctx);
 			if (!j)
 				j = mitsu9550_query_status2(ctx);
+			break;
+		case 'X':
+			j = mitsu9550_cancel_job(ctx);
 			break;
 		default:
 			break;  /* Ignore completely */
@@ -1191,37 +1678,70 @@ static int mitsu9550_cmdline_arg(void *vctx, int argc, char **argv)
 	return 0;
 }
 
+static int mitsu9550_query_markers(void *vctx, struct marker **markers, int *count)
+{
+	struct mitsu9550_ctx *ctx = vctx;
+	struct mitsu9550_media media;
+
+	/* Query printer status */
+	if (mitsu9550_get_status(ctx, (uint8_t*) &media, 0, 0, 1))
+		return CUPS_BACKEND_FAILED;
+
+	ctx->marker.levelnow = be16_to_cpu(media.remain);
+
+	*markers = &ctx->marker;
+	*count = 1;
+
+	return CUPS_BACKEND_OK;
+}
+
+static const char *mitsu9550_prefixes[] = {
+	"mitsu9xxx", // Family driver, do not nuke.
+	"mitsubishi-9000dw", "mitsubishi-9500dw",
+	"mitsubishi-9550dw", "mitsubishi-9550dw-s",
+	"mitsubishi-9600dw", // "mitsubishi-9600dw-s",
+	"mitsubishi-9800dw", "mitsubishi-9800dw-s",
+	"mitsubishi-9810dw",
+	// extras
+	"mitsubishi-9550d", "mitsubishi-9550dz", "mitsubishi-9800d", "mitsubishi-9800dz", "mitsubishi-9810d",
+	// Backwards compatibility
+	"mitsu9000", "mitsu9500", "mitsu9550", "mitsu9600", "mitsu9800", "mitsu9810",
+	NULL
+};
+
 /* Exported */
 struct dyesub_backend mitsu9550_backend = {
-	.name = "Mitsubishi CP-9550 family",
-	.version = "0.29",
-	.uri_prefix = "mitsu9550",
+	.name = "Mitsubishi CP9xxx family",
+	.version = "0.47",
+	.uri_prefixes = mitsu9550_prefixes,
 	.cmdline_usage = mitsu9550_cmdline,
 	.cmdline_arg = mitsu9550_cmdline_arg,
 	.init = mitsu9550_init,
 	.attach = mitsu9550_attach,
 	.teardown = mitsu9550_teardown,
+	.cleanup_job = mitsu9550_cleanup_job,
 	.read_parse = mitsu9550_read_parse,
 	.main_loop = mitsu9550_main_loop,
 	.query_serno = mitsu9550_query_serno,
+	.query_markers = mitsu9550_query_markers,
 	.devices = {
-	{ USB_VID_MITSU, USB_PID_MITSU_9000AM, P_MITSU_9550, ""},
-	{ USB_VID_MITSU, USB_PID_MITSU_9000D, P_MITSU_9550, ""},
-	{ USB_VID_MITSU, USB_PID_MITSU_9500D, P_MITSU_9550, ""},
-	{ USB_VID_MITSU, USB_PID_MITSU_9550D, P_MITSU_9550, ""},
-	{ USB_VID_MITSU, USB_PID_MITSU_9550DS, P_MITSU_9550S, ""},
-	{ USB_VID_MITSU, USB_PID_MITSU_9600D, P_MITSU_9600, ""},
-//	{ USB_VID_MITSU, USB_PID_MITSU_9600D, P_MITSU_9600S, ""},
-	{ USB_VID_MITSU, USB_PID_MITSU_9800D, P_MITSU_9800, ""},
-	{ USB_VID_MITSU, USB_PID_MITSU_9800DS, P_MITSU_9800S, ""},
-	{ USB_VID_MITSU, USB_PID_MITSU_98__D, P_MITSU_9810, ""},
-//	{ USB_VID_MITSU, USB_PID_MITSU_9810D, P_MITSU_9810, ""},
-//	{ USB_VID_MITSU, USB_PID_MITSU_9820DS, P_MITSU_9820S, ""},
-	{ 0, 0, 0, ""}
+		{ USB_VID_MITSU, USB_PID_MITSU_9000AM, P_MITSU_9550, NULL, "mitsubishi-9000dw"}, // XXX -am instead?
+		{ USB_VID_MITSU, USB_PID_MITSU_9000D, P_MITSU_9550, NULL, "mitsubishi-9000dw"},
+		{ USB_VID_MITSU, USB_PID_MITSU_9500D, P_MITSU_9550, NULL, "mitsubishi-9500dw"},
+		{ USB_VID_MITSU, USB_PID_MITSU_9550D, P_MITSU_9550, NULL, "mitsubishi-9550dw"},
+		{ USB_VID_MITSU, USB_PID_MITSU_9550DS, P_MITSU_9550S, NULL, "mitsubishi-9550dw-s"},
+		{ USB_VID_MITSU, USB_PID_MITSU_9600D, P_MITSU_9600, NULL, "mitsubishi-9600dw"},
+//	{ USB_VID_MITSU, USB_PID_MITSU_9600D, P_MITSU_9600S, NULL, "mitsubishi-9600dw-s"},
+		{ USB_VID_MITSU, USB_PID_MITSU_9800D, P_MITSU_9800, NULL, "mitsubishi-9800dw"},
+		{ USB_VID_MITSU, USB_PID_MITSU_9800DS, P_MITSU_9800S, NULL, "mitsubishi-9800dw-s"},
+		{ USB_VID_MITSU, USB_PID_MITSU_98__D, P_MITSU_9810, NULL, "mitsubishi-9810dw"},
+//	{ USB_VID_MITSU, USB_PID_MITSU_9810D, P_MITSU_9810, NULL, "mitsubishi-9810dw"},
+//	{ USB_VID_MITSU, USB_PID_MITSU_9820DS, P_MITSU_9820S, NULL, "mitsubishi-9820dw-s"},
+		{ 0, 0, 0, NULL, NULL}
 	}
 };
 
-/* Mitsubish CP-9550/9600/9800/9810 spool format:
+/* Mitsubish CP-9500/9550/9600/9800/9810/9820 spool format:
 
    Spool file consists of 3 (or 4) 50-byte headers, followed by three
    image planes, each with a 12-byte header, then a 4-byte footer.
@@ -1233,38 +1753,39 @@ struct dyesub_backend mitsu9550_backend = {
    1b 57 20 2e 00 QQ QQ 00  00 00 00 00 00 00 XX XX :: XX XX == columns
    YY YY 00 00 00 00 00 00  00 00 00 00 00 00 00 00 :: YY YY == rows
    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 :: QQ == 0x0a90 on 9810, 0x0a10 on all others.
-   00 00 
+   00 00
 
    ~~~ Header 2
 
    1b 57 21 2e 00 80 00 22  QQ QQ 00 00 00 00 00 00 :: ZZ ZZ = num copies (>= 0x01)
    00 00 00 00 00 00 00 00  00 00 00 00 ZZ ZZ 00 00 :: YY = 00/80 Fine/SuperFine (9550), 10/80 Fine/Superfine (98x0), 00 (9600)
    XX 00 00 00 00 00 YY 00  00 00 00 00 00 00 00 00 :: XX = 00 normal, 83 Cut 2x6 (9550 only!)
-   00 01                                            :: QQ QQ = 0x0803 on 9550, 0x0801 on 98x0, 0x0003 on 9600
+   RR 01                                            :: QQ QQ = 0x0803 on 9550, 0x0801 on 98x0, 0x0003 on 9600, 0xa803 on 9500
+                                                    :: RR = 01 for "use LUT" on 98xx, 0x00 otherwise.  Extension to stock.
 
    ~~~ Header 3 (9550 and 9800-S only..)
 
-   1b 57 22 2e 00 40 00 00  00 00 00 XX 00 00 00 00 :: XX = 00 normal, 01 FineDeep
+   1b 57 22 2e 00 QQ 00 00  00 00 00 XX 00 00 00 00 :: XX = 00 normal, 01 FineDeep
+   00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 :: QQ = 0xf0 on 9500, 0x40 on the rest
    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
-   00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 
-   00 00 
+   00 00
 
    ~~~ Header 4 (all but 9550-S and 9800-S, involves error policy?)
 
    1b 57 26 2e 00 QQ 00 00  00 00 00 SS RR 01 00 00 :: QQ = 0x70 on 9550/98x0, 0x60 on 9600 or 9800S
    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 :: RR = 0x01 on 9550/98x0, 0x00 on 9600
-   00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 :: SS = 0x01 on 9800S
-   00 00  
+   00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00 :: SS = 0x01 on 9800S, 0x00 otherwise.
+   00 00
 
   ~~~~ Data follows:
 
-   Format is:  planar YMC16 for 98x0 (only 12 bits used)
-               planar BGR for 9550DW
-               planar RGB for 9550DW-S and 9600DW
+   Format is:  planar YMC16 for 98x0 (but only 12 bits used, BIG endian)
+               planar RGB for all others
 
-   1b 5a 54 ?? RR RR 00 00  07 14 04 d8  :: 0714 == columns, 04d8 == rows
-                                         :: RRRR == row offset for data
+   1b 5a 54 ?? RR RR CC CC  07 14 04 d8  :: 0714 == columns, 04d8 == rows
+                                         :: RRRR == row offset for data, CCCC == col offset for data
 		                         :: ?? == 0x00 for 8bpp, 0x10 for 16/12bpp.
+					 ::    0x80 for PACKED BGR!
 
    Data follows immediately, no padding.
 
@@ -1278,11 +1799,14 @@ struct dyesub_backend mitsu9550_backend = {
 
   ~~~~ Footer:
 
+   1b 50 57 00  (9500)
    1b 50 46 00  (9550)
    1b 50 47 00  (9550-S)
    1b 50 48 00  (9600)
-   1b 50 4c 00  (98x0)
+   1b 50 4c 00  (9800/9810)
    1b 50 4e 00  (9800-S)
+
+   Unknown: 9600-S, 9820-S
 
   ~~~~ Lamination data follows (on 9810 only, if matte selected)
 
@@ -1306,10 +1830,10 @@ struct dyesub_backend mitsu9550_backend = {
 
  -> 1b 53 c5 9d
 
-  [[ Unknown ]]
+  [[ Unknown, query some parameter? ]]
 
  -> 1b 4b 7f 00
- <- eb 4b 8f 00 02 00 5e  [[ '02' seems to be a length ]] 
+ <- eb 4b 8f 00 02 00 5e  [[ '02' seems to be a length ]]
 
   [[ Unknown ]]
 
@@ -1331,17 +1855,17 @@ struct dyesub_backend mitsu9550_backend = {
     00 00 00 00 00 00 00 00  00 00 00 00 MM MM 00 00 :: MM MM = Max prints
     NN NN 00 00 00 00 00 00  00 00 00 00 00 00 00 00 :: NN NN = Remaining
 
-  [[ unknown, 9800-only ]]
+  [[ unknown query, 9800-only ]]
 
  -> 1b 4b 01 00
  <- e4 4b 01 00 02 00 78
 
   Status Query
- 
+
  -> 1b 56 30 00
  -> 30 2e 00 00 00 00 MM 00  NN NN ZZ 00 00 00 00 00 :: MM, NN, ZZ
     QQ RR SS 00 00 00 00 00  00 00 00 00 00 00 00 00 :: QQ, RR, SS
-    00 00 00 00 00 00 00 00  00 00 00 00 TT UU 00 00 :: TT, UU 
+    00 00 00 00 00 00 00 00  00 00 00 00 TT UU 00 00 :: TT, UU
 
   Status Query B (not sure what to call this)
 
@@ -1350,7 +1874,7 @@ struct dyesub_backend mitsu9550_backend = {
     00 00 00 00 00 00 00 00  00 00 00 QQ 00 00 00 00 :: QQ == Prints in job?
     00 00 00 00 00 00 00 00  00 00 NN NN 0A 00 00 01 :: NN NN = Remaining media
 
-  [[ Unknown ]]
+  [[ Job Cancel ]]
 
  -> 1b 44
 
@@ -1388,7 +1912,7 @@ struct dyesub_backend mitsu9550_backend = {
 
     Followed by image plane #3 (Red), XXXX * YYYY bytes
 
-  [[ Unknown -- End Data aka START print? ]]
+  [[ Footer -- End Data aka START print?  See above for other models ]]
 
  -> 1b 50 47 00  [9550S]
  -> 1b 50 4e 00  [9800S]
@@ -1414,7 +1938,7 @@ struct dyesub_backend mitsu9550_backend = {
      [...]
     00  3e 00 00  80 44  :: Idle.
 
-  Also seen: 
+  Also seen:
 
     00  3e 00 00  96 4b  :: Idle
     00  be 00 00  96 4b  :: Data submitted, pre "start"
@@ -1447,8 +1971,8 @@ struct dyesub_backend mitsu9550_backend = {
   SS :: ?? 0x00 means "ready for another print" but 0x01 is "busy"
   TT :: ?? seen values between 0x7c through 0x96)
   UU :: ?? seen values between 0x43 and 0x4c -- temperature?
- 
-  *** 
+
+  ***
 
    Other printer commands seen:
 

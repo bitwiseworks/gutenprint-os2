@@ -11,15 +11,13 @@
 ## GNU General Public License for more details.
 ##
 ## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
-## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+## along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ## Process this file with automake to produce Makefile.in.
 
 @SET_MAKE@
 
 include $(top_srcdir)/scripts/global.mk
-
 
 ## Variables
 
@@ -28,13 +26,20 @@ LOCAL_CPPFLAGS = -I$(top_srcdir)/src/main $(GUTENPRINT_CFLAGS)
 ## run-weavetest is extremely time consuming and provides little value for
 ## release testing since the last material change was made in 2008.
 ## It is essentially a giant unit test for the weave code.
-TESTS = curve run-testdither
+## testdither doesn't actually test anything; there appears to be no way
+## for it to actually return anything.
+TESTS = test-curve.test run-weavetest.test run-testdither.test
+run-testdither.log: run-weavetest.log
+test-curve.log: run-testdither.log
 
 ## Programs
 
 if BUILD_TEST
+AM_TESTS_ENVIRONMENT=STP_MODULE_PATH=$(top_builddir)/src/main/.libs:$(top_builddir)/src/main STP_DATA_PATH=$(top_srcdir)/src/xml
 noinst_PROGRAMS = testdither escp2-weavetest unprint pcl-unprint bjc-unprint curve xml-curve pixma_parse gen-printer-list
 endif
+
+noinst_SCRIPTS=test-curve.test run-weavetest.test run-testdither.test
 
 escp2_weavetest_SOURCES = escp2-weavetest.c
 escp2_weavetest_LDADD = $(GUTENPRINT_LIBS)
@@ -72,4 +77,4 @@ pixma_parse_SOURCES = pixma_parse.c pixma_parse.h
 CLEANFILES = mixed-color-1bit.ppm
 MAINTAINERCLEANFILES = Makefile.in
 
-EXTRA_DIST = cyan-sweep.tif parse-escp2 run-weavetest run-testdither
+EXTRA_DIST = cyan-sweep.tif parse-escp2 run-weavetest.test run-testdither.test test-curve.test

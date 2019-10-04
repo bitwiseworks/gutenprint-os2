@@ -15,8 +15,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include <gutenprint/gutenprint.h>
@@ -122,7 +121,7 @@ stpi_path_check(const struct dirent *module, /* File to check */
   namelen = strlen(filename);
   /* make sure we can take off suffix (e.g. .la)
      and still have a sane filename */
-  if (namelen >= strlen(check_suffix) + 1) 
+  if (namelen >= strlen(check_suffix) + 1)
     {
       if (!stat (filename, &modstat))
 	{
@@ -148,23 +147,29 @@ stpi_path_check(const struct dirent *module, /* File to check */
 }
 
 stp_list_t *
-stpi_data_path(void)
+stp_generate_path(const char *path)
 {
   stp_list_t *dir_list;                  /* List of directories to scan */
   if (!(dir_list = stp_list_create()))
     return NULL;
   stp_list_set_freefunc(dir_list, stp_list_node_free_data);
-  if (getenv("STP_DATA_PATH"))
-    stp_path_split(dir_list, getenv("STP_DATA_PATH"));
-  else
-    stp_path_split(dir_list, PKGXMLDATADIR);
+  stp_path_split(dir_list, path);
   return dir_list;
+}
+
+stp_list_t *
+stp_data_path(void)
+{
+  if (getenv("STP_DATA_PATH"))
+    return stp_generate_path(getenv("STP_DATA_PATH"));
+  else
+    return stp_generate_path(PKGXMLDATADIR);
 }
 
 stp_list_t *
 stpi_list_files_on_data_path(const char *name)
 {
-  stp_list_t *dir_list = stpi_data_path(); /* List of directories to scan */
+  stp_list_t *dir_list = stp_data_path(); /* List of directories to scan */
   stp_list_t *file_list = stp_path_search(dir_list, name);
   stp_list_destroy(dir_list);
   return file_list;
@@ -175,7 +180,7 @@ stpi_list_files_on_data_path(const char *name)
  */
 char *
 stpi_path_merge(const char *path, /* Path */
-	       const char *file) /* Filename */
+		const char *file) /* Filename */
 {
   char *filename;                /* Filename to return */
   int namelen = strlen(path) + strlen(file) + 2;
@@ -187,6 +192,38 @@ stpi_path_merge(const char *path, /* Path */
   return filename;
 }
 
+/*
+ * Find the first occurrence of <file> on <path>.
+ * File must be a plain file and readable.
+ * Return value must be freed
+ */
+char *
+stp_path_find_file(const char *path, /* Path, or NULL for STP_DATA_PATH */
+		   const char *file) /* File/relative pathname */
+{
+  stp_list_t *path_to_search;
+  stp_list_item_t *dir;
+  if (path)
+    path_to_search = stp_generate_path(path);
+  else
+    path_to_search = stp_data_path();
+  dir = stp_list_get_start(path_to_search);
+  while (dir)
+    {
+      struct stat modstat;                      /* stat() output */
+      const char *check_path = (const char *) stp_list_item_get_data(dir);
+      char *filename = stpi_path_merge(check_path, file);
+      if (!stat(filename, &modstat) && S_ISREG(modstat.st_mode))
+	{
+	  stp_list_destroy(path_to_search);
+	  return filename;
+	}
+      stp_free(filename);
+      dir = stp_list_item_next(dir);
+    }
+  stp_list_destroy(path_to_search);
+  return NULL;
+}
 
 /*
  * Split a PATH-type string (colon-delimited) into separate

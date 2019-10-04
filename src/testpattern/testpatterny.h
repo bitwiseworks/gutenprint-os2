@@ -1,19 +1,19 @@
-/* A Bison parser, made by GNU Bison 2.7.  */
+/* A Bison parser, made by GNU Bison 3.0.4.  */
 
 /* Bison interface for Yacc-like parsers in C
-   
-      Copyright (C) 1984, 1989-1990, 2000-2012 Free Software Foundation, Inc.
-   
+
+   Copyright (C) 1984, 1989-1990, 2000-2015 Free Software Foundation, Inc.
+
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation, either version 3 of the License, or
    (at your option) any later version.
-   
+
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
-   
+
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
@@ -26,13 +26,13 @@
    special exception, which will cause the skeleton and the resulting
    Bison output files to be licensed under the GNU General Public
    License without this special exception.
-   
+
    This special exception was added by the Free Software Foundation in
    version 2.2 of Bison.  */
 
 #ifndef YY_YY_TESTPATTERNY_H_INCLUDED
 # define YY_YY_TESTPATTERNY_H_INCLUDED
-/* Enabling traces.  */
+/* Debug traces.  */
 #ifndef YYDEBUG
 # define YYDEBUG 0
 #endif
@@ -40,59 +40,60 @@
 extern int yydebug;
 #endif
 
-/* Tokens.  */
+/* Token type.  */
 #ifndef YYTOKENTYPE
 # define YYTOKENTYPE
-   /* Put the tokens into the symbol table, so that GDB and other debuggers
-      know about them.  */
-   enum yytokentype {
-     tINT = 258,
-     tDOUBLE = 259,
-     tSTRING = 260,
-     COLOR = 261,
-     GAMMA = 262,
-     LEVEL = 263,
-     STEPS = 264,
-     INK_LIMIT = 265,
-     PRINTER = 266,
-     PARAMETER = 267,
-     PARAMETER_INT = 268,
-     PARAMETER_BOOL = 269,
-     PARAMETER_FLOAT = 270,
-     PARAMETER_CURVE = 271,
-     DENSITY = 272,
-     TOP = 273,
-     LEFT = 274,
-     SIZE_MODE = 275,
-     RELATIVE = 276,
-     PT = 277,
-     IN = 278,
-     MM = 279,
-     HSIZE = 280,
-     VSIZE = 281,
-     BLACKLINE = 282,
-     NOSCALE = 283,
-     PATTERN = 284,
-     XPATTERN = 285,
-     EXTENDED = 286,
-     IMAGE = 287,
-     GRID = 288,
-     SEMI = 289,
-     CHANNEL = 290,
-     CMYK = 291,
-     KCMY = 292,
-     RGB = 293,
-     CMY = 294,
-     GRAY = 295,
-     WHITE = 296,
-     MODE = 297,
-     PAGESIZE = 298,
-     MESSAGE = 299,
-     OUTPUT = 300,
-     START_JOB = 301,
-     END_JOB = 302,
-     END = 303
-   };
+  enum yytokentype
+  {
+    tINT = 258,
+    tDOUBLE = 259,
+    tSTRING = 260,
+    COLOR = 261,
+    GAMMA = 262,
+    LEVEL = 263,
+    STEPS = 264,
+    INK_LIMIT = 265,
+    PRINTER = 266,
+    PARAMETER = 267,
+    PARAMETER_INT = 268,
+    PARAMETER_BOOL = 269,
+    PARAMETER_FLOAT = 270,
+    PARAMETER_CURVE = 271,
+    DENSITY = 272,
+    TOP = 273,
+    LEFT = 274,
+    SIZE_MODE = 275,
+    RELATIVE = 276,
+    PT = 277,
+    IN = 278,
+    MM = 279,
+    HSIZE = 280,
+    VSIZE = 281,
+    BLACKLINE = 282,
+    COLORLINE = 283,
+    NOSCALE = 284,
+    PATTERN = 285,
+    XPATTERN = 286,
+    EXTENDED = 287,
+    IMAGE = 288,
+    GRID = 289,
+    SEMI = 290,
+    CHANNEL = 291,
+    CMYK = 292,
+    KCMY = 293,
+    RGB = 294,
+    CMY = 295,
+    GRAY = 296,
+    WHITE = 297,
+    MODE = 298,
+    PAGESIZE = 299,
+    ROUND = 300,
+    MESSAGE = 301,
+    OUTPUT = 302,
+    START_JOB = 303,
+    END_JOB = 304,
+    END = 305
+  };
 #endif
 /* Tokens.  */
 #define tINT 258
@@ -120,50 +121,35 @@ extern int yydebug;
 #define HSIZE 280
 #define VSIZE 281
 #define BLACKLINE 282
-#define NOSCALE 283
-#define PATTERN 284
-#define XPATTERN 285
-#define EXTENDED 286
-#define IMAGE 287
-#define GRID 288
-#define SEMI 289
-#define CHANNEL 290
-#define CMYK 291
-#define KCMY 292
-#define RGB 293
-#define CMY 294
-#define GRAY 295
-#define WHITE 296
-#define MODE 297
-#define PAGESIZE 298
-#define MESSAGE 299
-#define OUTPUT 300
-#define START_JOB 301
-#define END_JOB 302
-#define END 303
+#define COLORLINE 283
+#define NOSCALE 284
+#define PATTERN 285
+#define XPATTERN 286
+#define EXTENDED 287
+#define IMAGE 288
+#define GRID 289
+#define SEMI 290
+#define CHANNEL 291
+#define CMYK 292
+#define KCMY 293
+#define RGB 294
+#define CMY 295
+#define GRAY 296
+#define WHITE 297
+#define MODE 298
+#define PAGESIZE 299
+#define ROUND 300
+#define MESSAGE 301
+#define OUTPUT 302
+#define START_JOB 303
+#define END_JOB 304
+#define END 305
 
+/* Value type.  */
 
-
-#if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
-
-# define yystype YYSTYPE /* obsolescent; will be withdrawn */
-# define YYSTYPE_IS_DECLARED 1
-#endif
 
 extern YYSTYPE yylval;
 
-#ifdef YYPARSE_PARAM
-#if defined __STDC__ || defined __cplusplus
-int yyparse (void *YYPARSE_PARAM);
-#else
-int yyparse ();
-#endif
-#else /* ! YYPARSE_PARAM */
-#if defined __STDC__ || defined __cplusplus
 int yyparse (void);
-#else
-int yyparse ();
-#endif
-#endif /* ! YYPARSE_PARAM */
 
 #endif /* !YY_YY_TESTPATTERNY_H_INCLUDED  */

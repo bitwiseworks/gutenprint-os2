@@ -16,8 +16,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  * Revision History:
  *
@@ -74,7 +73,7 @@ init_dither_channel_new(stpi_dither_channel_t *dc, stp_vars_t *v)
   double upper_bottom = 0;
   double upper_middle = 0;
   double upper_top = 0;
-  
+
   double *breakpoints;
   double *val;
   unsigned short *data;

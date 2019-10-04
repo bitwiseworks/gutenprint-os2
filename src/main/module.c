@@ -15,8 +15,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -31,6 +30,7 @@
 #include <libgen.h>
 #include <errno.h>
 #include <unistd.h>
+#include <sys/param.h>
 
 
 typedef struct stpi_internal_module_class
@@ -46,10 +46,13 @@ static int stp_module_register(stp_module_t *module);
 static void *stp_dlsym(void *handle, const char *symbol, const char *modulename);
 #endif
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-const-variable"
+#ifdef __GNUC__
+#define UNUSED __attribute__ ((unused))
+#else
+#define UNUSED
+#endif
 
-static const stpi_internal_module_class_t module_classes[] =
+static const stpi_internal_module_class_t UNUSED module_classes[] =
   {
     {STP_MODULE_CLASS_MISC, N_("Miscellaneous (unclassified)")},
     {STP_MODULE_CLASS_FAMILY, N_("Family driver")},
@@ -57,7 +60,6 @@ static const stpi_internal_module_class_t module_classes[] =
     {STP_MODULE_CLASS_DITHER, N_("Dither algorithm")},
     {STP_MODULE_CLASS_INVALID, NULL} /* Must be last */
   };
-#pragma GCC diagnostic pop
 
 #if !defined(MODULE)
 extern stp_module_t print_canon_LTX_stp_module_data;
@@ -317,6 +319,13 @@ static int stp_module_register(stp_module_t *module /* Module to register */)
   if (stp_list_item_create(module_list, NULL, module))
     return 1;
 
+  if (module->class == STP_MODULE_CLASS_FAMILY)
+    {
+      char buf[MAXPATHLEN+1];
+      (void) snprintf(buf, MAXPATHLEN, "printers/%s.xml", module->name);
+      stp_deprintf(STP_DBG_MODULE, "stp-module: attempting to load: %s\n", buf);
+      stp_xml_parse_file_named(buf);
+    }
   stp_deprintf(STP_DBG_MODULE, "stp-module: register: %s\n", module->name);
   return 0;
 }
@@ -347,6 +356,7 @@ int stp_module_init(void)
 	}
       module_item = stp_list_item_next(module_item);
     }
+  stpi_find_duplicate_printers();
   return 0;
 }
 
@@ -383,8 +393,6 @@ static void *stp_dlsym(void *handle,           /* Module */
       full_symbol = NULL;
     }
 
-  full_symbol = (char *) stp_malloc(sizeof(char) * (strlen(module) - 2));
-
   /* "_LTX_" + '\0' - ".so" */
   len = strlen(symbol) + strlen(module) + 3;
   full_symbol = (char *) stp_malloc(sizeof(char) * len);
@@ -416,6 +424,7 @@ static void *stp_dlsym(void *handle,           /* Module */
 
  stp_deprintf(STP_DBG_MODULE, "SYMBOL: %s\n", full_symbol);
 
-  return dlsym(handle, full_symbol);
+ stp_free(tmp);
+ return dlsym(handle, full_symbol);
 }
 #endif

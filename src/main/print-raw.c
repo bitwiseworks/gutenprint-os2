@@ -16,8 +16,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 /*
@@ -28,7 +27,7 @@
 /*
  * To use this driver, we recommend this:
  *
- *   stp_set_driver(v, "raw-data-8");  // or raw_data-16 
+ *   stp_set_driver(v, "raw-data-8");  // or raw_data-16
  *   stp_set_string_parameter(v, "PageSize", "Custom");
  *   stp_set_page_height(v, HEIGHT);
  *   stp_set_page_width(v, WIDTH);
@@ -156,15 +155,17 @@ raw_parameters(const stp_vars_t *v, const char *name,
     }
   else if (strcmp(name, "PageSize") == 0)
     {
-      int papersizes = stp_known_papersizes();
+      const stp_papersize_list_t *paper_sizes =
+	stpi_get_standard_papersize_list();
+      const stp_papersize_list_item_t *ptli =
+	stpi_papersize_list_get_start(paper_sizes);
       description->bounds.str = stp_string_list_create();
-      for (i = 0; i < papersizes; i++)
+      while (ptli)
 	{
-	  /* All users of the raw drivers should use "Custom" PageSize
-	     and manually set page height/width! */
-	  const stp_papersize_t *pt = stp_get_papersize_by_index(i);
+	  const stp_papersize_t *pt = stpi_paperlist_item_get_data(ptli);
 	  stp_string_list_add_string(description->bounds.str,
 				     pt->name, gettext(pt->text));
+	  ptli = stpi_paperlist_item_next(ptli);
 	}
       description->deflt.str =
 	stp_string_list_param(description->bounds.str, 0)->name;
@@ -175,10 +176,10 @@ raw_parameters(const stp_vars_t *v, const char *name,
 
 static void
 raw_imageable_area(const stp_vars_t *v,
-		   int  *left,
-		   int  *right,
-		   int  *bottom,
-		   int  *top)
+		   stp_dimension_t  *left,
+		   stp_dimension_t  *right,
+		   stp_dimension_t  *bottom,
+		   stp_dimension_t  *top)
 {
   *left = 0;
   *top = 0;
@@ -188,8 +189,8 @@ raw_imageable_area(const stp_vars_t *v,
 
 static void
 raw_limit(const stp_vars_t *v,			/* I */
-	    int *width, int *height,
-	    int *min_width, int *min_height)
+	    stp_dimension_t *width, stp_dimension_t *height,
+	    stp_dimension_t *min_width, stp_dimension_t *min_height)
 {
   *width = 65535;
   *height = 65535;
@@ -198,7 +199,8 @@ raw_limit(const stp_vars_t *v,			/* I */
 }
 
 static void
-raw_describe_resolution(const stp_vars_t *v, int *x, int *y)
+raw_describe_resolution(const stp_vars_t *v,
+			stp_resolution_t *x, stp_resolution_t *y)
 {
   *x = 72;
   *y = 72;
@@ -236,7 +238,6 @@ raw_print(const stp_vars_t *v, stp_image_t *image)
   const char *ink_type = stp_get_string_parameter(nv, "InkType");
   stp_image_init(image);
 
-  stp_prune_inactive_options(nv);
   if (!stp_verify(nv))
     {
       stp_eprintf(nv, _("Print options not verified; cannot print.\n"));
@@ -360,7 +361,8 @@ static const stp_printfuncs_t print_raw_printfuncs =
   stp_verify_printer_params,
   NULL,
   NULL,
-  NULL
+  NULL,
+  stpi_standard_describe_papersize
 };
 
 
@@ -376,14 +378,14 @@ static stp_family_t print_raw_module_data =
 static int
 print_raw_module_init(void)
 {
-  return stp_family_register(print_raw_module_data.printer_list);
+  return stpi_family_register(print_raw_module_data.printer_list);
 }
 
 
 static int
 print_raw_module_exit(void)
 {
-  return stp_family_unregister(print_raw_module_data.printer_list);
+  return stpi_family_unregister(print_raw_module_data.printer_list);
 }
 
 

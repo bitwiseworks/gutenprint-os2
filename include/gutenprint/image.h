@@ -15,8 +15,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 /**
@@ -26,6 +25,8 @@
 
 #ifndef GUTENPRINT_IMAGE_H
 #define GUTENPRINT_IMAGE_H
+
+#include <gutenprint/types.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -51,7 +52,7 @@ extern "C" {
 typedef enum
 {
   STP_IMAGE_STATUS_OK,   /*!< Everything is OK. */
-  STP_IMAGE_STATUS_ABORT /*!< An error occured, or the job was aborted. */
+  STP_IMAGE_STATUS_ABORT /*!< An error occurred, or the job was aborted. */
 } stp_image_status_t;
 
 /**
@@ -124,8 +125,8 @@ typedef struct stp_image
 
 extern void stp_image_init(stp_image_t *image);
 extern void stp_image_reset(stp_image_t *image);
-extern int stp_image_width(stp_image_t *image);
-extern int stp_image_height(stp_image_t *image);
+extern int stp_image_width(stp_image_t *image); /* In pixels */
+extern int stp_image_height(stp_image_t *image); /* In pixels */
 extern stp_image_status_t stp_image_get_row(stp_image_t *image,
 					    unsigned char *data,
 					    size_t limit, int row);

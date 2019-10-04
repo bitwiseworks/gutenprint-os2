@@ -16,8 +16,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -28,6 +27,7 @@
 #include <gutenprint/gutenprint-intl-internal.h>
 #include "print-escp2.h"
 #include <limits.h>
+#include <sys/param.h>
 
 typedef struct
 {
@@ -54,20 +54,33 @@ static stpi_escp2_printer_t *escp2_model_capabilities;
 
 static int escp2_model_count = 0;
 
-static void
-load_model_from_file(const stp_vars_t *v, stp_mxml_node_t *xmod, int model)
+static int
+load_model_from_file(const stp_vars_t *v, const char *filename, int depth)
 {
+  int model = -1;
+  stp_mxml_node_t *xmod =
+    stp_xml_parse_file_from_path_uncached_safe(filename, "escp2Model", NULL);
+  const char *id = stp_mxmlElementGetAttr(xmod, "id");
   stp_mxml_node_t *tmp = xmod->child;
-  stpi_escp2_printer_t *p = stp_escp2_get_printer(v);
-  int found_black_head_config = 0;
-  int found_fast_head_config = 0;
-  p->max_black_resolution = -1;
-  p->cd_x_offset = -1;
-  p->cd_y_offset = -1;
-  p->duplex_left_margin = SHRT_MIN;
-  p->duplex_right_margin = SHRT_MIN;
-  p->duplex_top_margin = SHRT_MIN;
-  p->duplex_bottom_margin = SHRT_MIN;
+  stpi_escp2_printer_t *p = stpi_escp2_get_printer(v);
+  const char *stmp = stp_mxmlElementGetAttr(xmod, "base");
+  if (id)
+    model = stp_xmlstrtol(id);
+  if (depth == 0)
+    {
+      p->max_black_resolution = -1;
+      p->cd_x_offset = -1;
+      p->cd_y_offset = -1;
+      p->duplex_left_margin = SHRT_MIN;
+      p->duplex_right_margin = SHRT_MIN;
+      p->duplex_top_margin = SHRT_MIN;
+      p->duplex_bottom_margin = SHRT_MIN;
+    }
+  /* Allow recursive definitions */
+  if (stmp)
+    {
+      load_model_from_file(v, stmp, depth + 1);
+    }
   while (tmp)
     {
       if (tmp->type == STP_MXML_ELEMENT)
@@ -76,20 +89,21 @@ load_model_from_file(const stp_vars_t *v, stp_mxml_node_t *xmod, int model)
 	  const char *target = stp_mxmlElementGetAttr(tmp, "src");
 	  if (target)
 	    {
+	      /* FIXME need to allow override of these! */
 	      if (!strcmp(name, "media"))
-		stp_escp2_load_media(v, target);
+		stpi_escp2_load_media(v, target);
 	      else if (!strcmp(name, "inputSlots"))
-		stp_escp2_load_input_slots(v, target);
+		stpi_escp2_load_input_slots(v, target);
 	      else if (!strcmp(name, "mediaSizes"))
-		stp_escp2_load_media_sizes(v, target);
+		stpi_escp2_load_media_sizes(v, target);
 	      else if (!strcmp(name, "printerWeaves"))
-		stp_escp2_load_printer_weaves(v, target);
+		stpi_escp2_load_printer_weaves(v, target);
 	      else if (!strcmp(name, "qualityPresets"))
-		stp_escp2_load_quality_presets(v, target);
+		stpi_escp2_load_quality_presets(v, target);
 	      else if (!strcmp(name, "resolutions"))
-		stp_escp2_load_resolutions(v, target);
+		stpi_escp2_load_resolutions(v, target, NULL);
 	      else if (!strcmp(name, "inkGroup"))
-		stp_escp2_load_inkgroup(v, target);
+		stpi_escp2_load_inkgroup(v, target);
 	    }
 	  else if (tmp->child && tmp->child->type == STP_MXML_TEXT)
 	    {
@@ -163,21 +177,21 @@ load_model_from_file(const stp_vars_t *v, stp_mxml_node_t *xmod, int model)
 			    data[3] = stp_xmlstrtoul(cval);
 			}
 		      child = child->next;
-		    }		      
+		    }
 		  if (!strcmp(htype, "default"))
 		    {
 		      p->nozzles = data[0];
 		      p->min_nozzles = data[1];
 		      p->nozzle_start = data[2];
 		      p->nozzle_separation = data[3];
-		      if (!found_black_head_config)
+		      if (p->black_nozzles == 0)
 			{
 			  p->black_nozzles = data[0];
 			  p->min_black_nozzles = data[1];
 			  p->black_nozzle_start = data[2];
 			  p->black_nozzle_separation = data[3];
 			}
-		      if (!found_fast_head_config)
+		      if (p->fast_nozzles == 0)
 			{
 			  p->fast_nozzles = data[0];
 			  p->min_fast_nozzles = data[1];
@@ -191,7 +205,6 @@ load_model_from_file(const stp_vars_t *v, stp_mxml_node_t *xmod, int model)
 		      p->min_black_nozzles = data[1];
 		      p->black_nozzle_start = data[2];
 		      p->black_nozzle_separation = data[3];
-		      found_black_head_config = 1;
 		    }
 		  else if (!strcmp(htype, "fast"))
 		    {
@@ -199,7 +212,6 @@ load_model_from_file(const stp_vars_t *v, stp_mxml_node_t *xmod, int model)
 		      p->min_fast_nozzles = data[1];
 		      p->fast_nozzle_start = data[2];
 		      p->fast_nozzle_separation = data[3];
-		      found_fast_head_config = 1;
 		    }
 		}
 	      else if (!strcmp(name, "margins"))
@@ -212,9 +224,9 @@ load_model_from_file(const stp_vars_t *v, stp_mxml_node_t *xmod, int model)
 		  while (child && i < 4)
 		    {
 		      if (child->type == STP_MXML_TEXT)
-			data[i++] = stp_xmlstrtoul(child->value.text.string);
+			data[i++] = stp_xmlstrtodim(child->value.text.string);
 		      child = child->next;
-		    }		      
+		    }
 		  if (dtype && !strcmp(dtype, "duplex"))
 		    {
 		      p->duplex_left_margin = data[0];
@@ -299,36 +311,36 @@ load_model_from_file(const stp_vars_t *v, stp_mxml_node_t *xmod, int model)
 		p->bidirectional_upper_limit = stp_xmlstrtoul(val);
 	      else if (!strcmp(name, "minimumMediaSize"))
 		{
-		  p->min_paper_width = stp_xmlstrtoul(child->value.text.string);
+		  p->min_paper_width = stp_xmlstrtodim(child->value.text.string);
 		  child = child->next;
-		  p->min_paper_height = stp_xmlstrtoul(child->value.text.string);
+		  p->min_paper_height = stp_xmlstrtodim(child->value.text.string);
 		}
 	      else if (!strcmp(name, "maximumMediaSize"))
 		{
-		  p->max_paper_width = stp_xmlstrtoul(child->value.text.string);
+		  p->max_paper_width = stp_xmlstrtodim(child->value.text.string);
 		  child = child->next;
-		  p->max_paper_height = stp_xmlstrtoul(child->value.text.string);
+		  p->max_paper_height = stp_xmlstrtodim(child->value.text.string);
 		}
 	      else if (!strcmp(name, "maximumImageableArea"))
 		{
-		  p->max_imageable_width = stp_xmlstrtoul(child->value.text.string);
+		  p->max_imageable_width = stp_xmlstrtodim(child->value.text.string);
 		  child = child->next;
-		  p->max_imageable_height = stp_xmlstrtoul(child->value.text.string);
+		  p->max_imageable_height = stp_xmlstrtodim(child->value.text.string);
 		}
 	      else if (!strcmp(name, "CDOffset"))
 		{
-		  p->cd_x_offset = stp_xmlstrtoul(child->value.text.string);
+		  p->cd_x_offset = stp_xmlstrtodim(child->value.text.string);
 		  child = child->next;
-		  p->cd_y_offset = stp_xmlstrtoul(child->value.text.string);
+		  p->cd_y_offset = stp_xmlstrtodim(child->value.text.string);
 		}
 	      else if (!strcmp(name, "CDMediaSize"))
 		{
-		  p->cd_page_width = stp_xmlstrtoul(child->value.text.string);
+		  p->cd_page_width = stp_xmlstrtodim(child->value.text.string);
 		  child = child->next;
-		  p->cd_page_height = stp_xmlstrtoul(child->value.text.string);
+		  p->cd_page_height = stp_xmlstrtodim(child->value.text.string);
 		}
 	      else if (!strcmp(name, "extraBottom"))
-		p->paper_extra_bottom = stp_xmlstrtoul(val);
+		p->paper_extra_bottom = stp_xmlstrtodim(val);
 	      else if (!strcmp(name, "AlignmentChoices"))
 		{
 		  p->alignment_passes =
@@ -359,7 +371,9 @@ load_model_from_file(const stp_vars_t *v, stp_mxml_node_t *xmod, int model)
 		    }
 		}
 	      else if (!strcmp(name, "resolutions"))
-		stp_escp2_load_resolutions_from_xml(v, tmp);
+		{
+		  stpi_escp2_load_resolutions(v, filename, tmp);
+		}
 	    }
 	  else
 	    {
@@ -378,55 +392,28 @@ load_model_from_file(const stp_vars_t *v, stp_mxml_node_t *xmod, int model)
 	      else if (!strcmp(name, "hasInterchangeableInkCartridges"))
 		p->flags |= MODEL_INTERCHANGEABLE_INK_YES;
 	      else if (!strcmp(name, "resolutions"))
-		stp_escp2_load_resolutions_from_xml(v, tmp);
+		stpi_escp2_load_resolutions(v, filename, tmp);
 	    }
 	}
       tmp = tmp->next;
     }
+  stp_xml_free_parsed_file(xmod);
+  return model;
 }
 
 void
-stp_escp2_load_model(const stp_vars_t *v, int model)
+stpi_escp2_load_model(const stp_vars_t *v, int model)
 {
-  stp_list_t *dirlist = stpi_data_path();
-  stp_list_item_t *item;
-  char buf[1024];
-  int found = 0;
-
+  char buf[MAXPATHLEN+1];
   stp_xml_init();
-  sprintf(buf, "escp2/model/model_%d.xml", model);
-  item = stp_list_get_start(dirlist);
-  while (item)
-    {
-      const char *dn = (const char *) stp_list_item_get_data(item);
-      char *fn = stpi_path_merge(dn, buf);
-      stp_mxml_node_t *doc = stp_mxmlLoadFromFile(NULL, fn, STP_MXML_NO_CALLBACK);
-      stp_free(fn);
-      if (doc)
-	{
-	  stp_mxml_node_t *node =
-	    stp_mxmlFindElement(doc, doc, "escp2Model", NULL, NULL,
-				STP_MXML_DESCEND);
-	  if (node)
-	    {
-	      const char *stmp = stp_mxmlElementGetAttr(node, "id");
-	      STPI_ASSERT(stmp && stp_xmlstrtol(stmp) == model, v);
-	      load_model_from_file(v, node, model);
-	      found = 1;
-	    }
-	  stp_mxmlDelete(doc);
-	  if (found)
-	    break;
-	}
-      item = stp_list_item_next(item);
-    }
+  snprintf(buf, MAXPATHLEN, "escp2/model/model_%d.xml", model);
+  int model_id_from_file = load_model_from_file(v, buf, 0);
   stp_xml_exit();
-  stp_list_destroy(dirlist);
-  STPI_ASSERT(found, v);
+  STPI_ASSERT(model_id_from_file == model, v);
 }
 
 stpi_escp2_printer_t *
-stp_escp2_get_printer(const stp_vars_t *v)
+stpi_escp2_get_printer(const stp_vars_t *v)
 {
   int model = stp_get_model_id(v);
   STPI_ASSERT(model >= 0, v);
@@ -447,24 +434,18 @@ stp_escp2_get_printer(const stp_vars_t *v)
     }
   if (!(escp2_model_capabilities[model].active))
     {
-#ifdef HAVE_LOCALE_H
-      char *locale = stp_strdup(setlocale(LC_ALL, NULL));
-      setlocale(LC_ALL, "C");
-#endif
+      stp_xml_init();
       escp2_model_capabilities[model].active = 1;
-      stp_escp2_load_model(v, model);
-#ifdef HAVE_LOCALE_H
-      setlocale(LC_ALL, locale);
-      stp_free(locale);
-#endif
+      stpi_escp2_load_model(v, model);
+      stp_xml_exit();
     }
   return &(escp2_model_capabilities[model]);
 }
 
 model_featureset_t
-stp_escp2_get_cap(const stp_vars_t *v, escp2_model_option_t feature)
+stpi_escp2_get_cap(const stp_vars_t *v, escp2_model_option_t feature)
 {
-  stpi_escp2_printer_t *printdef = stp_escp2_get_printer(v);
+  const stpi_escp2_printer_t *printdef = stpi_escp2_get_printer(v);
   model_featureset_t featureset =
     (((1ul << escp2_printer_attrs[feature].bit_width) - 1ul) <<
      escp2_printer_attrs[feature].bit_shift);
@@ -472,10 +453,10 @@ stp_escp2_get_cap(const stp_vars_t *v, escp2_model_option_t feature)
 }
 
 int
-stp_escp2_has_cap(const stp_vars_t *v, escp2_model_option_t feature,
+stpi_escp2_has_cap(const stp_vars_t *v, escp2_model_option_t feature,
 		  model_featureset_t class)
 {
-  stpi_escp2_printer_t *printdef = stp_escp2_get_printer(v);
+  const stpi_escp2_printer_t *printdef = stpi_escp2_get_printer(v);
   model_featureset_t featureset =
     (((1ul << escp2_printer_attrs[feature].bit_width) - 1ul) <<
      escp2_printer_attrs[feature].bit_shift);

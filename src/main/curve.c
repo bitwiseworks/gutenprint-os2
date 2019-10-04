@@ -16,8 +16,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -386,6 +385,25 @@ stpi_curve_set_points(stp_curve_t *curve, size_t points)
   return 1;
 }
 
+static int
+stpi_curve_set_data(stp_curve_t *curve, size_t points, const double *data)
+{
+  if (points < 2)
+    return 0;
+  if (points > curve_point_limit ||
+      (curve->wrap_mode == STP_CURVE_WRAP_AROUND &&
+       points > curve_point_limit - 1))
+    return 0;
+  clear_curve_data(curve);
+  if (curve->wrap_mode == STP_CURVE_WRAP_AROUND)
+    points++;
+  if (curve->piecewise)
+    points *= 2;
+  if ((stp_sequence_set_data(curve->seq, points, data)) == 0)
+    return 0;
+  return 1;
+}
+
 /*
  * Create a default curve
  */
@@ -553,7 +571,7 @@ int
 stp_curve_set_interpolation_type(stp_curve_t *curve, stp_curve_type_t itype)
 {
   CHECK_CURVE(curve);
-  if (itype < 0 || itype >= stpi_curve_type_count)
+  if (itype >= stpi_curve_type_count)
     return 0;
   curve->curve_type = itype;
   return 1;
@@ -680,7 +698,7 @@ stp_curve_set_data_points(stp_curve_t *curve, size_t count,
 		       "stp_curve_set_data_points: horizontal value must "
 		       "not exceed .99999\n");
 	  return 0;
-	}	  
+	}
       if (data[i].x < 0 || data[i].x > 1)
 	{
 	  stp_deprintf(STP_DBG_CURVE_ERRORS,
@@ -1031,7 +1049,7 @@ interpolate_gamma_internal(const stp_curve_t *curve, double where)
   double blo, bhi;
   size_t real_point_count;
 
-  real_point_count = get_real_point_count(curve);;
+  real_point_count = get_real_point_count(curve);
 
   if (real_point_count)
     where /= (real_point_count - 1);
@@ -1054,7 +1072,7 @@ do_interpolate_spline(double low, double high, double frac,
 {
   double a = 1.0 - frac;
   double b = frac;
-  double retval = 
+  double retval =
     ((a * a * a - a) * interval_low) + ((b * b * b - b) * interval_high);
   retval = retval * x_interval * x_interval / 6;
   retval += (a * low) + (b * high);
@@ -1232,20 +1250,61 @@ stp_curve_resample(stp_curve_t *curve, size_t points)
 	}
       curve->piecewise = 0;
     }
+  else if (curve->gamma)
+    {
+      double fgamma = curve->gamma;
+      double blo, bhi;
+      int negative_gamma = 0;
+      stp_sequence_get_bounds(curve->seq, &blo, &bhi);
+      if (fgamma > 0)
+	{
+	  fgamma = -fgamma;
+	  negative_gamma = 1;
+	}
+      for (i = 0; i < limit; i++)
+	{
+	  double where = ((double) i * (double) old / (double) (limit - 1));
+	  if (negative_gamma)
+	    where = 1.0 - where;
+	  new_vec[i] = blo + ((bhi - blo) * pow(where, fgamma));
+	}
+    }
   else
     {
+      double blo, bhi;
+      const double *seq_data;
+      size_t seq_count;
+      size_t point_count = get_point_count(curve);
+      stp_sequence_get_data(curve->seq, &seq_count, &seq_data);
+      stp_sequence_get_bounds(curve->seq, &blo, &bhi);
+	if (curve->recompute_interval)
+	  compute_intervals((stpi_cast_safe(curve)));
       for (i = 0; i < limit; i++)
-	if (curve->gamma)
-	  new_vec[i] =
-	    interpolate_gamma_internal(curve, ((double) i * (double) old /
-					       (double) (limit - 1)));
-	else
-	  new_vec[i] =
-	    interpolate_point_internal(curve, ((double) i * (double) old /
-					       (double) (limit - 1)));
+	{
+	  double where = ((double) i * (double) old / (double) (limit - 1));
+	  int iwhere = (int) where;
+	  double frac = where - (double) iwhere;
+	  if (frac == 0.0)
+	    new_vec[i] = seq_data[iwhere];
+	  else if (curve->curve_type == STP_CURVE_TYPE_LINEAR)
+	    new_vec[i] = seq_data[iwhere] + (frac * curve->interval[iwhere]);
+	  else
+	    {
+	      int iwhere1 = iwhere + 1;
+	      while (iwhere1 > point_count)
+		iwhere1 -= point_count;
+	      new_vec[i] =
+		do_interpolate_spline(seq_data[iwhere], seq_data[iwhere1],
+				      frac, curve->interval[iwhere],
+				      curve->interval[iwhere1], 1.0);
+	      if (new_vec[i] > bhi)
+		new_vec[i] = bhi;
+	      else if (new_vec[i] < blo)
+		new_vec[i] = blo;
+	    }
+	}
     }
-  stpi_curve_set_points(curve, points);
-  stp_sequence_set_subrange(curve->seq, 0, limit, new_vec);
+  stpi_curve_set_data(curve, points, new_vec);
   curve->recompute_interval = 1;
   stp_free(new_vec);
   return 1;
@@ -1447,6 +1506,9 @@ stp_curve_create_from_xmltree(stp_mxml_node_t *curve)  /* The curve node */
   int piecewise = 0;
 
   stp_xml_init();
+  /* FIXME Need protection against unlimited recursion */
+  if ((stmp = stp_mxmlElementGetAttr(curve, "src")) != NULL)
+    return stp_curve_create_from_file(stmp);
   /* Get curve type */
   stmp = stp_mxmlElementGetAttr(curve, "type");
   if (stmp)
@@ -1518,7 +1580,7 @@ stp_curve_create_from_xmltree(stp_mxml_node_t *curve)  /* The curve node */
   ret = stp_curve_create(wrap_mode);
   stp_curve_set_interpolation_type(ret, curve_type);
 
-  child = stp_mxmlFindElement(curve, curve, "sequence", NULL, NULL, STP_MXML_DESCEND);
+  child = stp_xml_get_node(curve, "sequence", NULL);
   if (child)
     seq = stp_sequence_create_from_xmltree(child);
 
@@ -1590,6 +1652,11 @@ stp_curve_create_from_xmltree(stp_mxml_node_t *curve)  /* The curve node */
  error:
   stp_deprintf(STP_DBG_CURVE_ERRORS,
 	       "stp_curve_create_from_xmltree: error during curve read\n");
+  if (seq)
+    {
+      stp_sequence_destroy(seq);
+      seq = NULL;
+    }
   if (ret)
     stp_curve_destroy(ret);
   stp_xml_exit();
@@ -1862,11 +1929,33 @@ stp_curve_create_from_file(const char* file)
 {
   stp_curve_t *curve = NULL;
   stp_mxml_node_t *doc;
+  FILE *fp = NULL;
 #ifdef __OS2__
-  FILE *fp = fopen(file, "rb");
+  if (file[0] != '/' && strncmp(file, "./", 2) && strncmp(file, "../", 3) &&
+     !IS_ROOT(file))
 #else
-  FILE *fp = fopen(file, "r");
+  if (file[0] != '/' && strncmp(file, "./", 2) && strncmp(file, "../", 3))
 #endif
+    {
+      char *fn = stp_path_find_file(NULL, file);
+      if (fn)
+	{
+#ifdef __OS2__
+	  fp = fopen(file, "rb");
+#else
+	  fp = fopen(file, "r");
+#endif
+	  free(fn);
+	}
+    }
+  else if (file)
+    {
+#ifdef __OS2__
+      fp = fopen(file, "rb");
+#else
+      fp = fopen(file, "r");
+#endif
+    }
   if (!fp)
     {
       stp_deprintf(STP_DBG_CURVE_ERRORS,

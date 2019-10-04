@@ -15,8 +15,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -194,7 +193,7 @@ stpui_build_standard_print_command(const stpui_plist_t *plist,
     raw = 0;
   else
     raw = 1;
-  
+
   if (copy_count > 1)
     stp_asprintf(&count_string, "%s %d ",
 		 global_printing_system->copy_count_command, copy_count);
@@ -374,7 +373,7 @@ stpui_printer_initialize(stpui_plist_t *printer)
   stp_set_errdata(printer->v, stderr);
   stpui_plist_set_copy_count(printer, 1);
   stp_set_string_parameter(printer->v, "InputImageType", image_type);
-  stp_set_string_parameter(printer->v, "JobMode", "Page");  
+  stp_set_string_parameter(printer->v, "JobMode", "Page");
   if (image_raw_channels)
     {
       (void) sprintf(tmp, "%d", image_raw_channels);
@@ -746,7 +745,7 @@ stpui_printrc_load_v0(FILE *fp)
 	}
       else
 	continue;
-      
+
       if (!get_mandatory_string_param(key.v, "Resolution", &lineptr))
 	continue;
       if (!get_mandatory_string_param(key.v, "PageSize", &lineptr))
@@ -917,6 +916,9 @@ stpui_printrc_load_v1(FILE *fp)
 	    case STP_PARAMETER_TYPE_DOUBLE:
 	      stp_set_float_parameter(key.v, keyword, atof(value));
 	      break;
+	    case STP_PARAMETER_TYPE_DIMENSION:
+	      stp_set_dimension_parameter(key.v, keyword, atof(value));
+	      break;
 	    case STP_PARAMETER_TYPE_INT:
 	      stp_set_int_parameter(key.v, keyword, atoi(value));
 	      break;
@@ -956,7 +958,7 @@ stpui_printrc_load_v1(FILE *fp)
 	if (strcmp(current_printer, stpui_plist[i].name) == 0)
 	  stpui_plist_current = i;
     }
-}  
+}
 
 char *stpui_printrc_current_printer = NULL;
 extern FILE *yyin;
@@ -1053,6 +1055,7 @@ stpui_printrc_load(void)
 	case 2:
 	case 3:
 	case 4:
+	case 5:
 	  stpui_printrc_load_v2(fp);
 	  break;
 	}
@@ -1094,7 +1097,7 @@ stpui_printrc_save(void)
       fprintf(stderr, "Number of printers: %d\n", stpui_plist_count);
 #endif
 
-      fputs("#PRINTRCv4 written by Gutenprint " PLUG_IN_VERSION "\n\n", fp);
+      fputs("#PRINTRCv5 written by Gutenprint " PLUG_IN_VERSION "\n\n", fp);
 
       fprintf(fp, "Global-Settings:\n");
       fprintf(fp, "  Current-Printer: \"%s\"\n",
@@ -1121,15 +1124,15 @@ stpui_printrc_save(void)
 	  fprintf(fp, "  Output-Filename: \"%s\"\n", p->output_filename);
 	  fprintf(fp, "  Extra-Printer-Options: \"%s\"\n", p->extra_printer_options);
 	  fprintf(fp, "  Custom-Command: \"%s\"\n", p->custom_command);
-	  fprintf(fp, "  Scaling: %.3f\n", p->scaling);
+	  fprintf(fp, "  Scaling: %.6f\n", p->scaling);
 	  fprintf(fp, "  Orientation: %d\n", p->orientation);
 	  fprintf(fp, "  Autosize-Roll-Paper: %d\n", p->auto_size_roll_feed_paper);
 	  fprintf(fp, "  Unit: %d\n", p->unit);
 
-	  fprintf(fp, "  Left: %d\n", stp_get_left(p->v));
-	  fprintf(fp, "  Top: %d\n", stp_get_top(p->v));
-	  fprintf(fp, "  Custom_Page_Width: %d\n", stp_get_page_width(p->v));
-	  fprintf(fp, "  Custom_Page_Height: %d\n", stp_get_page_height(p->v));
+	  fprintf(fp, "  Left: %f\n", stp_get_left(p->v));
+	  fprintf(fp, "  Top: %f\n", stp_get_top(p->v));
+	  fprintf(fp, "  Custom_Page_Width: %f\n", stp_get_page_width(p->v));
+	  fprintf(fp, "  Custom_Page_Height: %f\n", stp_get_page_height(p->v));
 	  fprintf(fp, "  Parameter %s Int True %d\n", copy_count_name,
 		  stpui_plist_get_copy_count(p));
 
@@ -1171,7 +1174,7 @@ stpui_printrc_save(void)
 		case STP_PARAMETER_TYPE_DIMENSION:
 		  if (stp_check_dimension_parameter(p->v, param->name,
 						    STP_PARAMETER_INACTIVE))
-		    fprintf(fp, "  Parameter %s Dimension %s %d\n", param->name,
+		    fprintf(fp, "  Parameter %s Dimension %s %f\n", param->name,
 			    ((stp_get_dimension_parameter_active
 			      (p->v, param->name) == STP_PARAMETER_ACTIVE) ?
 			     "True" : "False"),
@@ -1386,7 +1389,7 @@ usr1_handler (int sig)
  * x,y refers to file descriptor y duplicated onto file descriptor x.
  * So "<0,3" means input file descriptor 3 (pipefd[0]) dup2'ed onto
  * file descriptor 0.
- * 
+ *
  * fd0 = fd 0
  * fd1 = fd 1
  * fd2 = fd 2
@@ -1397,9 +1400,9 @@ usr1_handler (int sig)
  * fd7 = errfd[0]
  * fd8 = errfd[1]
  *
- * 
+ *
  *                            NORMAL CASE
- * 
+ *
  * PARENT             CHILD 1              CHILD 2          CHILD 3
  * (print generator)  (lpr monitor)        (print command)  (error monitor)
  * |
@@ -1471,9 +1474,9 @@ usr1_handler (int sig)
  * | return
  * X
  *
- * 
+ *
  *                            ERROR CASE (job cancelled)
- * 
+ *
  * PARENT             CHILD 1              CHILD 2          CHILD 3
  * (print generator)  (lpr monitor)        (print command)  (error monitor)
  * |
@@ -1604,7 +1607,7 @@ stpui_print(const stpui_plist_t *printer, stpui_image_t *image)
 		      if (opid < 0)
 			_exit(1);
 		      else if (opid == 0) /* Child 3 (monitors stderr) */
-			{ 
+			{
 			  stp_outfunc_t errfunc = stpui_get_errfunc();
 			  void *errdata = stpui_get_errdata();
 			  /* calls g_message on anything it sees */
@@ -1800,8 +1803,9 @@ stpui_print(const stpui_plist_t *printer, stpui_image_t *image)
       stp_set_errfunc(np->v, stpui_get_errfunc());
       stp_set_outdata(np->v, prn);
       stp_set_errdata(np->v, stpui_get_errdata());
+      stp_start_job(np->v, &(image->im));
       print_status = stp_print(np->v, &(image->im));
-
+      stp_end_job(np->v, &(image->im));
       /*
        * Note that we do not use popen() to create the output, therefore
        * we do not use pclose() to close it.  See bug 1013565.

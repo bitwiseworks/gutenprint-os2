@@ -16,8 +16,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 /*
@@ -887,6 +886,8 @@ compute_gcr_curve(const stp_vars_t *vars)
     k_lower = stp_get_float_parameter(vars, "GCRLower");
   if (stp_check_float_parameter(vars, "BlackTrans", STP_PARAMETER_DEFAULTED))
     k_trans = stp_get_float_parameter(vars, "BlackTrans");
+  if (k_lower >= 1)
+    return NULL;
   k_upper *= lut->steps;
   k_lower *= lut->steps;
   stp_dprintf(STP_DBG_LUT, vars, " k_lower %.3f\n", k_lower);
@@ -1088,14 +1089,14 @@ compute_user_correction(lut_t *lut)
       else
 	pixel = 1.0 - pow(1.0 - pixel, 1.0 / brightness);
       tmp[i] = floor((pixel * 65535) + .5);
-      
+
       pixel = (double) i / (double) (isteps - 1);
       if (brightness < 1)
 	pixel = pow(pixel, brightness);
       else
 	pixel = 1.0 - pow(1.0 - pixel, 1.0 / brightness);
       tmp_brightness[i] = floor((pixel * 65535) + .5);
-    }  
+    }
   stp_curve_set_data(curve, isteps, tmp);
   if (isteps != lut->steps)
     stp_curve_resample(curve, lut->steps);
@@ -1384,7 +1385,7 @@ stpi_dump_lut_to_file(stp_vars_t *v, const char *dump_file)
   fp = fopen(dump_file, "w");
 #endif
   if (fp)
-    {    
+    {
       stp_dprintf(STP_DBG_LUT, v, "Dumping LUT to %s\n", dump_file);
       stpi_do_dump_lut_to_file(v, fp);
       (void) fclose(fp);
@@ -1396,6 +1397,7 @@ stpi_compute_lut(stp_vars_t *v)
 {
   int i;
   lut_t *lut = (lut_t *)(stp_get_component_data(v, "Color"));
+  double app_gamma_scale = 4.0;
   stp_curve_t *curve;
   stp_dprintf(STP_DBG_LUT, v, "stpi_compute_lut\n");
 
@@ -1426,9 +1428,11 @@ stpi_compute_lut(stp_vars_t *v)
 
   if (stp_check_float_parameter(v, "AppGamma", STP_PARAMETER_ACTIVE))
     lut->app_gamma = stp_get_float_parameter(v, "AppGamma");
+  if (stp_check_float_parameter(v, "AppGammaScale", STP_PARAMETER_ACTIVE))
+    app_gamma_scale = stp_get_float_parameter(v, "AppGammaScale");
   if (stp_check_boolean_parameter(v, "SimpleGamma", STP_PARAMETER_ACTIVE))
     lut->simple_gamma_correction = stp_get_boolean_parameter(v, "SimpleGamma");
-  lut->screen_gamma = lut->app_gamma / 4.0; /* "Empirical" */
+  lut->screen_gamma = lut->app_gamma / app_gamma_scale; /* "Empirical" */
   curve = stp_curve_create_copy(color_curve_bounds);
   stp_curve_rescale(curve, 65535.0, STP_CURVE_COMPOSE_MULTIPLY,
 		    STP_CURVE_BOUNDS_RESCALE);
@@ -1511,9 +1515,17 @@ stpi_color_traditional_init(stp_vars_t *v,
   size_t total_channel_bits;
 
   if (steps != 256 && steps != 65536)
-    return -1;
+    {
+      stp_eprintf(v,
+		  "stpi_color_traditional_init: Invalid color steps %lu (must be 256 or 65536)\n",
+		  (unsigned long) steps);
+      return -1;
+    }
   if (!channel_depth)
-    return -1;
+    {
+      stp_eprintf(v, "stpi_color_traditional_init: ChannelBitDepth not set\n");
+      return -1;
+    }
 
   lut = allocate_lut();
   lut->input_color_description =
@@ -1523,6 +1535,7 @@ stpi_color_traditional_init(stp_vars_t *v,
 
   if (!lut->input_color_description || !lut->output_color_description)
     {
+      stp_eprintf(v, "stpi_color_traditional_init: input/output types not specified\n");
       free_lut(lut);
       return -1;
     }
@@ -1531,6 +1544,7 @@ stpi_color_traditional_init(stp_vars_t *v,
     {
       if (stp_verify_parameter(v, "STPIRawChannels", 1) != PARAMETER_OK)
 	{
+	  stp_eprintf(v, "stpi_color_traditional_init: raw printing requested but STPIRawChannels not set\n");
 	  free_lut(lut);
 	  return -1;
 	}
@@ -1697,18 +1711,17 @@ stpi_color_traditional_describe_parameter(const stp_vars_t *v,
 		{
 		  stp_parameter_t ink_limit_desc;
 		  stp_describe_parameter(v, "InkChannels", &ink_limit_desc);
-		  if (ink_limit_desc.p_type == STP_PARAMETER_TYPE_INT)
+		  if (ink_limit_desc.p_type == STP_PARAMETER_TYPE_INT &&
+		      ink_limit_desc.deflt.integer > 1)
 		    {
-		      if (ink_limit_desc.deflt.integer > 1)
-			{
-			  description->bounds.dbl.upper =
-			    ink_limit_desc.deflt.integer;
-			  description->deflt.dbl =
-			    ink_limit_desc.deflt.integer;
-			}
-		      else
-			description->is_active = 0;
+		      description->bounds.dbl.upper =
+			ink_limit_desc.deflt.integer;
+		      description->deflt.dbl =
+			ink_limit_desc.deflt.integer;
 		    }
+		  else
+		    description->is_active = 0;
+
 		  stp_parameter_description_destroy(&ink_limit_desc);
 		}
 	      break;

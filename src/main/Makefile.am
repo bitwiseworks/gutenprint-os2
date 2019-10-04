@@ -11,8 +11,7 @@
 ## GNU General Public License for more details.
 ##
 ## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
-## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+## along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ## Process this file with automake to produce Makefile.in.
 
@@ -33,8 +32,9 @@ pkgmoduledir = $(pkglibdir)/@GUTENPRINT_MAJOR_VERSION@.@GUTENPRINT_MINOR_VERSION
 
 ## Programs
 
-if BUILD_MODULES
-pkgmodule_LTLIBRARIES = \
+# So we can maintainerclean these files even if
+# modules aren't (currently) in use.
+pkg_libraries = \
 	color-traditional.la \
 	print-canon.la \
 	print-escp2.la \
@@ -44,6 +44,10 @@ pkgmodule_LTLIBRARIES = \
 	print-ps.la \
 	print-dyesub.la \
 	print-raw.la
+
+if BUILD_MODULES
+pkgmodule_LTLIBRARIES = \
+	$(pkg_libraries)
 endif
 
 color_traditional_la_SOURCES = \
@@ -86,7 +90,7 @@ print_dpl_la_LDFLAGS = -module -avoid-version
 print_ps_la_SOURCES = print-ps.c xmlppd.c xmlppd.h
 print_ps_la_LDFLAGS = -module -avoid-version
 
-print_dyesub_la_SOURCES = print-olympus.c
+print_dyesub_la_SOURCES = print-dyesub.c
 print_dyesub_la_LDFLAGS = -module -avoid-version
 
 print_raw_la_SOURCES = print-raw.c
@@ -148,6 +152,7 @@ libgutenprint_la_SOURCES =			\
 	print-version.c				\
 	print-weave.c				\
 	printers.c				\
+	refcache.c				\
 	sequence.c				\
 	string-list.c				\
 	xml.c					\
@@ -175,6 +180,6 @@ pkgconfigdata_DATA = gutenprint.pc
 
 ## Clean
 
-MAINTAINERCLEANFILES = Makefile.in
+MAINTAINERCLEANFILES = Makefile.in $(pkg_libraries)
 
 EXTRA_DIST = libgutenprint.sym

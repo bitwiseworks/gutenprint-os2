@@ -1,18 +1,17 @@
 dnl Copyright (C) 2001-2004 Roger Leigh
-dnl 
+dnl
 dnl This program is free software; you can redistribute it and/or modify
 dnl it under the terms of the GNU General Public License as published by
 dnl the Free Software Foundation; either version 2, or (at your option)
 dnl any later version.
-dnl 
+dnl
 dnl This program is distributed in the hope that it will be useful,
 dnl but WITHOUT ANY WARRANTY; without even the implied warranty of
 dnl MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 dnl GNU General Public License for more details.
-dnl 
+dnl
 dnl You should have received a copy of the GNU General Public License
-dnl along with this program; if not, write to the Free Software
-dnl Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+dnl along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 dnl Process this file with autoconf to produce a configure script.
 
@@ -41,7 +40,7 @@ dnl
 dnl The .soname version is (GCI - GBA).GBA
 dnl Example: if GCI is 3 and GBA is 1, the version is 2.1.  To get 2.2,
 dnl GCI would be incremented to 4 and GBA to 2.
-dnl 
+dnl
 dnl *NOTE*: due to an error preparing 5.2.8, we must skip over major version of
 dnl 3 (that is, GCI - GBA) and go directly from 2 to 4.
 dnl
@@ -75,17 +74,22 @@ dnl For more detailed information, see the libtool info documentation.
 dnl
 pushdef([GUTENPRINT_NAME],              [gutenprint])
 pushdef([GUTENPRINT_MAJOR_VERSION],     [5])
-pushdef([GUTENPRINT_MINOR_VERSION],     [2])
-pushdef([GUTENPRINT_MICRO_VERSION],     [12])
-pushdef([GUTENPRINT_EXTRA_VERSION],     [])
-pushdef([GUTENPRINT_CURRENT_INTERFACE], [7])
-pushdef([GUTENPRINT_BINARY_AGE],        [5])
-pushdef([GUTENPRINTUI2_CURRENT_INTERFACE], [1])
-pushdef([GUTENPRINTUI2_BINARY_AGE],        [0])
+pushdef([GUTENPRINT_MINOR_VERSION],     [3])
+pushdef([GUTENPRINT_MICRO_VERSION],     [3])
+dnl Append snapshot ID if STP_BUILD_SNAPSHOT is set
+pushdef([GUTENPRINT_EXTRA_VERSION],     [[]m4_esyscmd_s(scripts/snapstamp)])
+pushdef([GUTENPRINT_CURRENT_INTERFACE], [13])
+pushdef([GUTENPRINT_BINARY_AGE],        [4])
+pushdef([GUTENPRINTUI2_CURRENT_INTERFACE], [6])
+pushdef([GUTENPRINTUI2_BINARY_AGE],        [4])
 pushdef([GUTENPRINT_VERSION], GUTENPRINT_MAJOR_VERSION.GUTENPRINT_MINOR_VERSION.GUTENPRINT_MICRO_VERSION[]GUTENPRINT_EXTRA_VERSION)
 
-AC_INIT(GUTENPRINT_NAME, GUTENPRINT_VERSION, [gimp-print-devel@lists.sourceforge.net])
-AC_PREREQ(2.53)
+AC_INIT([GUTENPRINT_NAME],
+	[GUTENPRINT_VERSION],
+	[gimp-print-devel@lists.sourceforge.net],
+	[GUTENPRINT_NAME],
+	[https://gimp-print.sourceforge.net])
+AC_PREREQ([2.69])
 AC_REVISION($Revision$)
 AC_CONFIG_SRCDIR(src/main/print-vars.c)
 AC_CONFIG_MACRO_DIR([m4])
@@ -105,8 +109,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ])
 
 [GUTENPRINT_MAJOR_VERSION]=GUTENPRINT_MAJOR_VERSION
@@ -129,6 +132,18 @@ popdef([GUTENPRINT_BINARY_AGE])
 popdef([GUTENPRINTUI2_CURRENT_INTERFACE])
 popdef([GUTENPRINTUI2_BINARY_AGE])
 
+configure_args=
+
+for arg in "$@" ; do
+    if test -n "$configure_args" ; then
+        configure_args="$configure_args "
+    fi
+    if echo "$arg" | grep -q '[\s]' ; then
+        arg="'$arg'"
+    fi
+    configure_args="$configure_args$arg"
+done
+
 AC_SUBST([GUTENPRINT_MAJOR_VERSION])
 AC_SUBST([GUTENPRINT_MINOR_VERSION])
 AC_SUBST([GUTENPRINT_MICRO_VERSION])
@@ -148,7 +163,8 @@ LDFLAGS="${LDFLAGS:=}"
 LIBS="${LIBS:=}"
 
 dnl Initialize automake stuff.
-AM_INIT_AUTOMAKE(1.9 dist-bzip2 no-dist-gzip tar-ustar check-news gnu)
+dnl We use our own NEWS file check, as explained in Makefile.am.
+AM_INIT_AUTOMAKE(1.9 dist-xz dist-bzip2 no-dist-gzip tar-ustar gnu)
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 popdef([GUTENPRINT_NAME])
 popdef([GUTENPRINT_VERSION])
@@ -181,12 +197,13 @@ AC_SUBST(ALL_LINGUAS)
 
 dnl Set up libtool scripts.
 dnl Disable static library building to speed up the build
-AC_LIBTOOL_DLOPEN
+LT_INIT[(dlopen)]
+
 # We need static libraries for CUPS genppd program for now, for bug 865265
 # --rlk 20031223
 AC_ENABLE_STATIC(yes)
 #AC_DISABLE_SHARED
-AM_PROG_LIBTOOL
+LT_INIT
 AC_SUBST(LIBTOOL_DEPS)
 dnl define HAVE_GNU_LD if GNU ld is present
 if test "$ac_cv_prog_gnu_ld" = "yes" ; then
@@ -216,12 +233,35 @@ AC_DEFINE_UNQUOTED(OSTYPE, ["${OSTYPE}"], [The operating system to build for])
 
 
 dnl Command line options.
-AC_PATH_TOOL(CUPS_CONFIG, cups-config)
-if test -z "${CUPS_CONFIG}" ; then
-  BUILD_CUPS="no"
-else
-  BUILD_CUPS="yes"
-fi
+AC_ARG_WITH([cups-config],
+  [AS_HELP_STRING([--with-cups-config=path], [Specify path to cups-config executable.])],
+  [with_cups_config="$withval"],
+  [with_cups_config=system]
+)
+AS_IF([test "x$with_cups_config" != "xsystem"], [
+    CUPS_CONFIG=$with_cups_config
+  ], [
+    AC_PATH_TOOL(CUPS_CONFIG, [cups-config])
+    AS_IF([test -z "$CUPS_CONFIG"], [
+      FOUND_CUPS_CONFIG=no
+   ],
+   [
+      FOUND_CUPS_CONFIG=yes
+   ])
+])
+
+missing_cups_error="
+
+******* ERROR ******
+You do not have the necessary software installed to build the CUPS driver.
+This is most likely not what you want, as the resulting installation will
+not be usable as part of a normal printing system.  If you are certain
+that this is what you want, please run configure with --without-cups.
+Otherwise, please read the README and install the necessary development
+package, most likely named 'cups-devel', and re-run configure.
+
+"
+
 STP_ARG_WITH_DETAILED(
   [cups],
   [=PREFIX],
@@ -230,7 +270,15 @@ STP_ARG_WITH_DETAILED(
   [BUILD_CUPS],
   [(automatic)],
   [
-    yes) [BUILD_CUPS]="yes" ; AC_MSG_RESULT([yes]) ; cups_prefix="/usr" ;;
+    yes)
+         if test "$FOUND_CUPS_CONFIG" == "yes" ; then
+	   [BUILD_CUPS]="yes"
+	   AC_MSG_RESULT([yes])
+	   cups_prefix="/usr"
+	 else
+	   AC_MSG_ERROR([$missing_cups_error])
+	 fi
+	 ;;
     no) [BUILD_CUPS]="no" ; AC_MSG_RESULT([no]) ; cups_prefix="/usr" ;;
     *) if test -d ${withval} ; then
          [BUILD_CUPS]="yes"
@@ -241,7 +289,12 @@ STP_ARG_WITH_DETAILED(
          AC_MSG_ERROR([${withval}: no such directory for --with-cups])
        fi ;;
   ],[
-     cups_prefix="${prefix}"
+     if test "$FOUND_CUPS_CONFIG" == "yes" ; then
+       cups_prefix="${prefix}"
+       [BUILD_CUPS]="yes"
+     else
+       AC_MSG_ERROR([$missing_cups_error])
+     fi
   ])
 
 dnl GNU gettext checks.
@@ -372,7 +425,7 @@ if test x$enable_static = xyes; then
   else
     AC_MSG_ERROR([--disable-static must be used with --with-modules])
   fi
-fi 
+fi
 
 STP_ARG_ENABLE([debug],
                [turn on debugging in build],
@@ -403,12 +456,22 @@ dnl   [EXTRA_LIBREADLINE_DEPS]=""
 dnl fi
 
 # libusb-1.0 (For CUPS backends, but only bother if CUPS is enabled)
-if test "x$BUILD_CUPS" = "xyes" ; then
+AS_IF([test "x$BUILD_CUPS" = "xyes"], [
  PKG_CHECK_MODULES([LIBUSB], [libusb-1.0],
                    [HAVE_LIBUSB=yes
                     BUILD_LIBUSB_BACKENDS=yes],
                    [HAVE_LIBUSB=no
 	            BUILD_LIBUSB_BACKENDS=no])
+])
+
+STP_ARG_ENABLE([user-install],
+               [install GIMP plugin in home directory],
+               [USER_INSTALL],
+               [no])
+if test x$USER_INSTALL = xyes ; then
+  PLUG_IN_PATH="bin"
+else
+  PLUG_IN_PATH="admin-bin"
 fi
 
 AC_PATH_TOOL([GIMPTOOL2_CHECK], [gimptool-2.0 gimptool])
@@ -431,6 +494,18 @@ dnl Quote to protect sed regexes
     BUILD_GIMP2="no"
     BUILD_GIMP2_AS_GUTENPRINT="no"
   fi
+  if test x${BUILD_GIMP2} = xyes ; then
+    AC_MSG_CHECKING([for GIMP 2.0 plug-in directory])
+    GIMPTOOL2_OUTPUT=`$GIMPTOOL2_CHECK --dry-run --install-${PLUG_IN_PATH} print | tail -n 1`
+    GIMP2_PLUGIN_DIR=`echo "$GIMPTOOL2_OUTPUT" | cut -d ' ' -f 3 | tr -d "\'"`
+    AC_MSG_RESULT([$GIMP2_PLUGIN_DIR])
+    if test "x$NO_PKGCONFIG_PATHS" = x; then
+      gimp2_plug_indir="${GIMP2_PLUGIN_DIR}"
+    else
+      gimp2_plug_indir="${prefix}/lib/gimp/2.0/plug-ins"
+    fi
+
+  fi
 fi
 
 PKG_CHECK_MODULES([GTK2], [gtk+-2.0],
@@ -440,9 +515,9 @@ PKG_CHECK_MODULES([GTK2], [gtk+-2.0],
                   [HAVE_GTK2=no
 	           BUILD_LIBGUTENPRINTUI2=no])
 # Require both gimptool and pkg-config to succeed
-if test x$BUILD_GIMP2 = xyes; then
+AS_IF([test "x$BUILD_GIMP2" = "xyes"], [
   PKG_CHECK_MODULES([GIMP2], [gimpui-2.0], [BUILD_GIMP2=yes], [BUILD_GIMP2=no])
-fi
+])
 
 STP_ARG_WITH([gimp2],
              [build GIMP 2.x Print plugin],
@@ -490,22 +565,12 @@ STP_ARG_ENABLE([testpattern],
                [BUILD_TESTPATTERN],
                [(automatic)])
 
-STP_ARG_ENABLE([user-install],
-               [install GIMP plugin in home directory],
-               [USER_INSTALL],
-               [no])
-if test x$USER_INSTALL = xyes ; then
-  PLUG_IN_PATH="bin"
-else
-  PLUG_IN_PATH="admin-bin"
-fi
-
 dnl aclocal flags.
 dnl AM_ACLOCAL_INCLUDE(m4 m4local)
 
 dnl Checks for programs used in the build process
 AM_ICONV_LINK
-AC_ISC_POSIX
+AC_SEARCH_LIBS([strerror],[cposix])
 AC_PROG_AWK
 AC_PROG_CC
 AM_PROG_CC_STDC
@@ -515,13 +580,13 @@ AC_PROG_LN_S
 AM_PROG_LEX
 AC_PROG_YACC
 AC_PROG_MKDIR_P
-AC_PATH_PROG([BZIP2], [bzip2])
 AC_PATH_PROG([TEST], [test])
 AC_PATH_PROG([TRUE], [true])
 AC_PATH_PROG([FIND], [find])
 AC_PATH_PROG([PERL], [perl])
 AC_PATH_PROG([GLIB_MKENUMS], [glib-mkenums])
 AC_PATH_PROG([CONVERT], [convert])
+AC_PATH_PROG([BASHREAL], [bash])
 if test x${USE_MAINTAINER_MODE} = xyes ; then
   if test x${CONVERT} = x ; then
     AC_MSG_WARN([PostScript developer's guide cannot be regenerated!])
@@ -570,8 +635,34 @@ if test x${USE_MAINTAINER_MODE} = xyes ; then
   fi
 fi
 
-dnl CUPS checks
-STP_CUPS_PROGS
+AC_PATH_PROG([XZ], [xz])
+AC_PATH_PROG([GZIP], [gzip])
+AC_PATH_PROG([BZIP2], [bzip2])
+AC_PATH_PROG([LRZIP], [lrzip])
+AC_PATH_PROG([RZIP], [rzip])
+AC_PATH_PROG([ZPAQ], [zpaq])
+AC_PATH_PROG([BASH], [bash])
+if test x${ZPAQ} != x ; then
+  COMPRESS='$(top_builddir)/scripts/wzpaq -z -q'
+  CSUF=.zpaq
+elif test x${LRZIP} != x ; then
+  COMPRESS="${LRZIP} -z -q"
+  CSUF=.lrz
+elif test x${XZ} != x ; then
+  COMPRESS="${XZ} -e -9"
+  CSUF=.xz
+elif test x${RZIP} != x ; then
+  COMPRESS="${RZIP} -9"
+  CSUF=.rz
+elif test x${BZIP2} != x ; then
+  COMPRESS="${BZIP2} -9"
+  CSUF=.bz2
+else
+  COMPRESS="${GZIP} -9"
+  CSUF=.gz
+fi
+AC_SUBST(COMPRESS)
+AC_SUBST(CSUF)
 
 GUTENPRINT_RELEASE_VERSION=${GUTENPRINT_MAJOR_VERSION}.${GUTENPRINT_MINOR_VERSION}
 AH_TEMPLATE(GUTENPRINT_RELEASE_VERSION,, [Gutenprint release version])
@@ -630,6 +721,24 @@ fi
 
 AC_DEFINE_UNQUOTED(PACKAGE_LIB_DIR, ["${PACKAGE_LIB_DIR}"])
 
+dnl Set PACKAGE_BIN_DIR in config.h.
+AH_TEMPLATE(PACKAGE_BIN_DIR,, [Package bin directory])
+if test "x${bindir}" = 'x${exec_prefix}/bin'; then
+  if test "x${exec_prefix}" = "xNONE"; then
+    if test "x${prefix}" = "xNONE"; then
+      PACKAGE_BIN_DIR="${ac_default_prefix}/bin"
+    else
+      PACKAGE_BIN_DIR="${prefix}/bin"
+    fi
+  else
+    PACKAGE_BIN_DIR="${exec_prefix}/bin"
+  fi
+else
+  PACKAGE_BIN_DIR="${bindir}"
+fi
+
+AC_DEFINE_UNQUOTED(PACKAGE_BIN_DIR, ["${PACKAGE_BIN_DIR}"])
+
 AH_TEMPLATE(PKGXMLDATADIR,, [Package XML data directory])
 PKGXMLDATADIR="${PACKAGE_DATA_DIR}/${GUTENPRINT_RELEASE_VERSION}/xml"
 AC_DEFINE_UNQUOTED(PKGXMLDATADIR, ["$PKGXMLDATADIR"], )
@@ -640,14 +749,14 @@ AC_DEFINE_UNQUOTED(PKGMODULEDIR, ["$PKGMODULEDIR"])
 
 dnl Compiler flags
 if test x$ac_compiler_gnu = "xyes"; then
-  STP_ADD_COMPILER_ARGS([-Wall -Wcast-align -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations -Wnested-externs -Wwrite-strings -Werror-implicit-function-declaration -Winline -Wformat=2 -finline-limit=131072],, [GNUCFLAGS])
+  STP_ADD_COMPILER_ARGS([-Wall -Wcast-align -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations -Wnested-externs -Wwrite-strings -Werror-implicit-function-declaration -Winline -Wformat=2 -finline-limit=131072 -Wformat -Werror=format-security -Wmissing-prototypes],, [GNUCFLAGS])
   if test x${USE_MAINTAINER_MODE} = xyes ; then
     STP_ADD_COMPILER_ARGS([-D_POSIX_C_SOURCE=200809L -std=c99 -pedantic -Waggregate-return -Wcast-qual -Wshadow -Wredundant-decls],, [GNUCFLAGS])
   fi
   if test x$ENABLE_DEBUG = xyes ; then
     STP_ADD_COMPILER_ARG([-g])
   else
-    STP_ADD_FIRST_COMPILER_ARG([-O6 -O3 -O2 -O1 -O])
+    STP_ADD_FIRST_COMPILER_ARG([-O3 -O2 -O1 -O])
   fi
 else
   if test x$ENABLE_DEBUG = xyes ; then
@@ -751,9 +860,9 @@ AC_CHECK_LIB(m,pow,
 	     LIBM=-lm
 )
 
+dnl CUPS stuff
+STP_CUPS_PATH
 STP_CUPS_LIBS
-
-STP_GIMP2_LIBS
 
 dnl Checks for header files.
 AC_HEADER_STDC
@@ -782,7 +891,6 @@ AC_C_CONST
 AC_C_INLINE
 AC_TYPE_OFF_T
 AC_TYPE_SIZE_T
-AC_TYPE_SIGNAL
 
 dnl Checks for library functions.
 AC_CHECK_FUNCS([nanosleep poll usleep])
@@ -835,7 +943,6 @@ AM_CONDITIONAL(INSTALL_USER_GUIDE, test x${INSTALL_USER_GUIDE} = xyes)
 
 AM_CONDITIONAL(BUILD_LIBUSB_BACKENDS, test x${BUILD_LIBUSB_BACKENDS} = xyes)
 
-STP_CUPS_PATH
 
 # loadable modules
 # portable sh has no AND test...
@@ -888,7 +995,7 @@ if test x$USE_LTDL = xtrue; then
     GUTENPRINT_LIBDEPS="${GUTENPRINT_LIBDEPS} ${LTDL_LIBS}"
     gutenprint_libdeps="${gutenprint_libdeps} ${LTDL_LIBS}"
   fi
-  LIBUSB_BACKEND_LIBDEPS="${LIBUSB_BACKEND_LIBDEPS} ${LTDL_LIBS}"  
+  LIBUSB_BACKEND_LIBDEPS="${LIBUSB_BACKEND_LIBDEPS} ${LTDL_LIBS}"
   AC_DEFINE(USE_LTDL, "1", [Use GNU libltdl as module loader])
   AC_MSG_RESULT([ltdl])
 elif test x$USE_DLOPEN = xtrue; then
@@ -898,7 +1005,7 @@ elif test x$USE_DLOPEN = xtrue; then
     MODULE="true"
     AC_DEFINE(MODULE, "1", [Build a modular libgutenprint])
     GUTENPRINT_LIBDEPS="${GUTENPRINT_LIBDEPS} ${DLOPEN_LIBS}"
-    gutenprint_libdeps="${gutenprint_libdeps} ${DLOPEN_LIBS}"    
+    gutenprint_libdeps="${gutenprint_libdeps} ${DLOPEN_LIBS}"
   fi
   LIBUSB_BACKEND_LIBDEPS="${LIBUSB_BACKEND_LIBDEPS} ${DLOPEN_LIBS}"
   AC_DEFINE(USE_DLOPEN, "1", [Use libdl/dlopen as module loader])
@@ -940,8 +1047,20 @@ AC_DEFINE_UNQUOTED(CUPS_PPD_NICKNAME_STRING, "$CUPS_PPD_NICKNAME_STRING")
 AC_DEFINE_UNQUOTED(CUPS_PPD_PS_LEVEL, ${CUPS_PPD_PS_LEVEL}, [CUPS PPD PostScript level])
 STP_RELEASE_DATE
 
+MINIMAL_PRINTERS_TO_TEST="escp2-r1800 escp2-3880 \
+	pcl-g_4 pcl-g_5c pcl-500 \
+	mitsubishi-p95d shinko-chcs2145 kodak-1400 canon-cp910 mitsubishi-9800d \
+	bjc-s200 bjc-PIXMA-Pro9000mk2 \
+	datamax_oneil_I4212e \
+	lexmark-z43"
+
+AC_DEFINE_UNQUOTED(MINIMAL_PRINTERS_TO_TEST, ${MINIMAL_PRINTERS_TO_TEST},
+					     [Printers to test in minimal run])
+
 dnl Some versions of make get very grouchy about $(RM)
 RM='rm'
+
+PKGROOT=`pwd`
 
 dnl Substitutions
 AC_SUBST(prefix)
@@ -980,12 +1099,13 @@ AC_SUBST(gutenprintui2_libdeps)
 AC_SUBST(LIBM)
 AC_SUBST(LIBREADLINE_DEPS)
 AC_SUBST(MAINTAINER_CFLAGS)
-AC_SUBST(PLUG_IN_PATH)
 AC_SUBST(WHICH_PPDS)
 AC_SUBST(BUILD_CUPS_PPDS)
 AC_SUBST(GUTENPRINT_BASE_VERSION)
 AC_SUBST(GUTENPRINT_RELEASE_VERSION)
 AC_SUBST(LIBUSB_BACKEND_LIBDEPS)
+AC_SUBST(PKGROOT)
+AC_SUBST(MINIMAL_PRINTERS_TO_TEST)
 
 dnl Optional architecture options to be applied after all autoconf tests
 dnl are done...
@@ -1014,38 +1134,54 @@ AC_CONFIG_FILES([samples/Makefile])
 AC_CONFIG_FILES([src/Makefile])
 AC_CONFIG_FILES([src/cups/Makefile])
 AC_CONFIG_FILES([src/cups/Info.plist])
-AC_CONFIG_FILES([src/cups/cups-genppdupdate],
-                [chmod +x src/cups/cups-genppdupdate])
+CONFIG_FILE_EXEC([src/cups/cups-genppdupdate])
+CONFIG_FILE_EXEC([src/cups/test-ppds.test])
+CONFIG_FILE_EXEC([src/cups/min-pagesize])
 AC_CONFIG_FILES([src/escputil/Makefile])
-AC_CONFIG_FILES([src/testpattern/run-testpattern-2],
-                [chmod +x src/testpattern/run-testpattern-2])
-AC_CONFIG_FILES([src/testpattern/compare-checksums],
-                [chmod +x src/testpattern/compare-checksums])
-AC_CONFIG_FILES([src/testpattern/compress-checksums],
-                [chmod +x src/testpattern/compress-checksums])
-AC_CONFIG_FILES([src/testpattern/uncompress-checksums],
-                [chmod +x src/testpattern/uncompress-checksums])
-AC_CONFIG_FILES([src/cups/test-rastertogutenprint],
-                [chmod +x src/cups/test-rastertogutenprint])
+CONFIG_FILE_EXEC([src/testpattern/compare-image-files])
+CONFIG_FILE_EXEC([src/testpattern/run-testpattern])
+CONFIG_FILE_EXEC([src/testpattern/run-testpattern-1.test])
+CONFIG_FILE_EXEC([src/testpattern/run-testpattern-2])
+CONFIG_FILE_EXEC([src/testpattern/run-testpattern-2.test])
+CONFIG_FILE_EXEC([src/testpattern/compare-checksums])
+CONFIG_FILE_EXEC([src/testpattern/compress-checksums])
+CONFIG_FILE_EXEC([src/cups/test-rastertogutenprint])
+CONFIG_FILE_EXEC([src/cups/test-rastertogutenprint.test])
 AC_CONFIG_FILES([src/testpattern/Makefile])
 AC_CONFIG_FILES([src/gimp2/Makefile])
 AC_CONFIG_FILES([src/main/Makefile])
 AC_CONFIG_FILES([src/main/gutenprint.pc])
 AC_CONFIG_FILES([src/xml/Makefile])
+AC_CONFIG_FILES([src/xml/dither/Makefile])
+AC_CONFIG_FILES([src/xml/papers/Makefile])
+AC_CONFIG_FILES([src/xml/printers/Makefile])
 AC_CONFIG_FILES([src/xml/escp2/Makefile])
 AC_CONFIG_FILES([src/xml/escp2/media/Makefile])
 AC_CONFIG_FILES([src/xml/escp2/mediasizes/Makefile])
 AC_CONFIG_FILES([src/xml/escp2/model/Makefile])
+AC_CONFIG_FILES([src/xml/escp2/model/base/Makefile])
 AC_CONFIG_FILES([src/xml/escp2/inputslots/Makefile])
 AC_CONFIG_FILES([src/xml/escp2/inks/Makefile])
 AC_CONFIG_FILES([src/xml/escp2/weaves/Makefile])
 AC_CONFIG_FILES([src/xml/escp2/qualitypresets/Makefile])
+AC_CONFIG_FILES([src/xml/escp2/resolutions/Makefile])
 AC_CONFIG_FILES([src/gutenprintui2/Makefile])
 AC_CONFIG_FILES([src/gutenprintui2/gutenprintui2.pc])
 AC_CONFIG_FILES([test/Makefile])
+CONFIG_FILE_EXEC([test/compress-5level.sh])
+CONFIG_FILE_EXEC([test/compress-6level.sh])
+CONFIG_FILE_EXEC([test/uncompress-5level.sh])
+CONFIG_FILE_EXEC([test/uncompress-6level.sh])
+CONFIG_FILE_EXEC([test/parse-bjc])
+CONFIG_FILE_EXEC([test/parse-escp2])
+CONFIG_FILE_EXEC([test/run-testdither.test])
+CONFIG_FILE_EXEC([test/run-weavetest.test])
+CONFIG_FILE_EXEC([test/test-curve.test])
 AC_CONFIG_FILES([scripts/Makefile])
-AC_CONFIG_FILES([scripts/mkgitlog],
-		[chmod +x scripts/mkgitlog])
+CONFIG_FILE_EXEC([scripts/mkgitlog])
+CONFIG_FILE_EXEC([scripts/gversion])
+CONFIG_FILE_EXEC([scripts/test-gversion])
+CONFIG_FILE_EXEC([scripts/wzpaq])
 AC_CONFIG_COMMANDS([default], [
 echo
 ],
@@ -1057,106 +1193,112 @@ AC_OUTPUT
 
 warnings_emitted=0
 echo
-echo "Configuration Summary:"
-echo "------------- --------"
-echo
-echo "If you have any problems, please report the information below to"
-echo "$PACKAGE_BUGREPORT"
-echo
-echo "================================================================"
-echo "  Release: $PACKAGE_STRING generated on $RELEASE_DATE"
-echo
-echo "  Features:"
+echo "Gutenprint Configuration Summary:" |tee config.summary
+echo "---------- ------------- --------" |tee -a config.summary
+echo |tee -a config.summary
+echo "If you have any problems, please report the information below to" |tee -a config.summary
+echo "$PACKAGE_BUGREPORT" |tee -a config.summary
+echo |tee -a config.summary
+echo "================================================================" |tee -a config.summary
+echo "  Release: $PACKAGE_STRING generated on $RELEASE_DATE" |tee -a config.summary
+echo "  Generated at `date` by $LOGNAME" |tee -a config.summary
+echo |tee -a config.summary
+echo "  Features:" |tee -a config.summary
 if test "$BUILD_CUPS" != "no" ; then
-    echo "    Build CUPS:                                 $BUILD_CUPS, installing in $cups_prefix"
-    echo "        Build CUPS 1.2 enhancements:            $BUILD_CUPS_1_2"
-    echo "        Build CUPS PPD files:                   $BUILD_CUPS_PPDS"
+    echo "    Build CUPS:                                 $BUILD_CUPS, installing in $cups_prefix" |tee -a config.summary
+    echo "        Build CUPS 1.2 enhancements:            $BUILD_CUPS_1_2" |tee -a config.summary
+    echo "        Build CUPS PPD files:                   $BUILD_CUPS_PPDS" |tee -a config.summary
     if test "$BUILD_CUPS_PPDS" != "no" ; then
-	echo "            Build translated CUPS PPD files:    $BUILD_TRANSLATED_CUPS_PPDS"
-	echo "                Build global CUPS PPD files:    $BUILD_GLOBALIZED_CUPS_PPDS"
-	echo "            Build simplified CUPS PPD files:    $BUILD_SIMPLIFIED_CUPS_PPDS"
-	echo "            Install CUPS PPDs at top level:     $CUPS_PPDS_AT_TOP_LEVEL"
+        echo "            Build translated CUPS PPD files:    $BUILD_TRANSLATED_CUPS_PPDS" |tee -a config.summary
+        echo "                Build global CUPS PPD files:    $BUILD_GLOBALIZED_CUPS_PPDS" |tee -a config.summary
+        echo "            Build simplified CUPS PPD files:    $BUILD_SIMPLIFIED_CUPS_PPDS" |tee -a config.summary
+        echo "            Install CUPS PPDs at top level:     $CUPS_PPDS_AT_TOP_LEVEL" |tee -a config.summary
     fi
     if test "$BUILD_CUPS_PPDS" != "no" -o "$BUILD_CUPS_1_2" != "no" ; then
-        echo "        Generate PS level 3 CUPS PPD files:     $USE_LEVEL3_PS"
+        echo "        Generate PS level 3 CUPS PPD files:     $USE_LEVEL3_PS" |tee -a config.summary
     fi
-    echo "        Build genppd statically:                $STATIC_GENPPD"
+    echo "        Build genppd statically:                $STATIC_GENPPD" |tee -a config.summary
 
     if test "$STATIC_GENPPD" = "no" ; then
-        echo "            ***WARNING: Use of --disable-static-genppd or --disable-static"
-	echo "                        when building CUPS is very dangerous.  The build may"
-	echo "                        fail when building the PPD files, or may *SILENTLY*"
-	echo "                        build incorrect PPD files or cause other problems."
-	echo "                        Please review the README and release notes carefully!"
-	warnings_emitted=1
+        echo "            ***WARNING: Use of --disable-static-genppd or --disable-static" |tee -a config.summary
+        echo "                        when building CUPS is very dangerous.  The build may" |tee -a config.summary
+        echo "                        fail when building the PPD files, or may *SILENTLY*" |tee -a config.summary
+        echo "                        build incorrect PPD files or cause other problems." |tee -a config.summary
+        echo "                        Please review the README and release notes carefully!" |tee -a config.summary
+        warnings_emitted=1
     fi
-    echo "        Build CUPS dyesub USB backend:          $BUILD_LIBUSB_BACKENDS"
+    echo "        Build CUPS dyesub USB backend:          $BUILD_LIBUSB_BACKENDS" |tee -a config.summary
 else
-    echo "    Build CUPS:                                 $BUILD_CUPS"
+    echo "    Build CUPS:                                 $BUILD_CUPS" |tee -a config.summary
 fi
-echo "    Build EPSON inkjet utility:                 $BUILD_ESCPUTIL"
+echo "    Build EPSON inkjet utility:                 $BUILD_ESCPUTIL" |tee -a config.summary
 if test "$BUILD_GIMP2" != "no" ; then
-    echo "    Build enhanced Print plugin for GIMP:       yes"
+    echo "    Build enhanced Print plugin for GIMP:       yes" |tee -a config.summary
     if test "$BUILD_GIMP2_AS_GUTENPRINT" != "no" ; then
-	echo "        GIMP plugin will be named:              gutenprint"
+        echo "        GIMP plugin will be named:              gutenprint" |tee -a config.summary
     else
-	echo "        GIMP plugin will be named:              print"
+        echo "        GIMP plugin will be named:              print" |tee -a config.summary
     fi
-    echo "        Install plugin(s) in home directory:    $USER_INSTALL"
+    echo "        Install plugin(s) in home directory:    $USER_INSTALL" |tee -a config.summary
 else
-    echo "    Build enhanced Print plugin for GIMP:       no"
+    echo "    Build enhanced Print plugin for GIMP:       no" |tee -a config.summary
 fi
-echo "    Build test programs:                        $BUILD_TEST"
-echo "    Build testpattern generator:                $BUILD_TESTPATTERN"
-echo
-echo "  Installation summary:"
-echo "    Installation prefix:                        $prefix"
+echo "    Build test programs:                        $BUILD_TEST" |tee -a config.summary
+echo "    Build testpattern generator:                $BUILD_TESTPATTERN" |tee -a config.summary
+echo |tee -a config.summary
+echo "  Installation summary:" |tee -a config.summary
+echo "    Installation prefix:                        $prefix" |tee -a config.summary
 # Configure intentionally does not expand exec_prefix to allow make
 # to do so.
-echo "    Exec prefix:                                `eval eval echo $exec_prefix` ($exec_prefix)";
-echo "    Data directory:                             $PACKAGE_DATA_DIR"
-echo "    Library directory:                          `eval eval echo $PACKAGE_LIB_DIR` ($PACKAGE_LIB_DIR)"
-echo "    XML data directory:                         $PKGXMLDATADIR"
-echo "    Module directory:                           `eval eval echo $PKGMODULEDIR` ($PKGMODULEDIR)"
-echo "    Install sample images:                      $INSTALL_SAMPLES"
-echo
-echo "  General configuration:"
+echo "    Exec prefix:                                `eval eval echo $exec_prefix` ($exec_prefix)" |tee -a config.summary
+echo "    Data directory:                             $PACKAGE_DATA_DIR" |tee -a config.summary
+echo "    Library directory:                          `eval eval echo $PACKAGE_LIB_DIR` ($PACKAGE_LIB_DIR)" |tee -a config.summary
+echo "    Executable directory:                       `eval eval echo $PACKAGE_BIN_DIR` ($PACKAGE_BIN_DIR)" |tee -a config.summary
+echo "    XML data directory:                         $PKGXMLDATADIR" |tee -a config.summary
+echo "    Module directory:                           `eval eval echo $PKGMODULEDIR` ($PKGMODULEDIR)" |tee -a config.summary
+echo "    Install sample images:                      $INSTALL_SAMPLES" |tee -a config.summary
+echo |tee -a config.summary
+echo "  General configuration:" |tee -a config.summary
+echo "    Configure arguments:                        $configure_args" |tee -a config.summary
+echo "    Compiler:                                   $CC" |tee -a config.summary
+echo "    Compiler Version:                           `"$CC" -v 2>&1 |grep ' version '`" |tee -a config.summary
 if test x$ac_compiler_gnu = "xyes"; then
-    echo "    Compiler options:                           $CFLAGS $GNUCFLAGS"
+    echo "    Compiler options:                           $CFLAGS $GNUCFLAGS" |tee -a config.summary
 else
-    echo "    Compiler options:                           $CFLAGS"
+    echo "    Compiler options:                           $CFLAGS" |tee -a config.summary
 fi
-echo "    Build static libraries:                     $enable_static"
-echo "    Build shared libraries:                     $enable_shared"
-echo "    Maintainer mode:                            $USE_MAINTAINER_MODE"
-echo "    Use i18n:                                   $USE_NLS"
-echo "    Generate profiling information:             $ENABLE_PROFILE"
-echo "    Generate debugging symbols:                 $ENABLE_DEBUG"
-echo "    Use modules:                                $WITH_MODULES"
+echo "    Build static libraries:                     $enable_static" |tee -a config.summary
+echo "    Build shared libraries:                     $enable_shared" |tee -a config.summary
+echo "    Maintainer mode:                            $USE_MAINTAINER_MODE" |tee -a config.summary
+echo "    Use i18n:                                   $USE_NLS" |tee -a config.summary
+echo "    Generate profiling information:             $ENABLE_PROFILE" |tee -a config.summary
+echo "    Generate debugging symbols:                 $ENABLE_DEBUG" |tee -a config.summary
+echo "    Use modules:                                $WITH_MODULES" |tee -a config.summary
 if test -n "$EXTRA_LIBREADLINE_DEPS" ; then
-    echo "    Use readline libraries:                     $USE_READLINE, extra arguments: $EXTRA_LIBREADLINE_DEPS"
+    echo "    Use readline libraries:                     $USE_READLINE, extra arguments: $EXTRA_LIBREADLINE_DEPS" |tee -a config.summary
 else
-    echo "    Use readline libraries:                     $USE_READLINE"
+    echo "    Use readline libraries:                     $USE_READLINE" |tee -a config.summary
 fi
-echo "    uname -a output:                            `uname -a`"
-echo "================================================================"
+echo "    uname -a output:                            `uname -a`" |tee -a config.summary
+echo "================================================================" |tee -a config.summary
 if test $warnings_emitted -ne 0 ; then
     echo
     echo '*** WARNING: Please review the warnings shown above carefully!'
 fi
-echo
+echo |tee -a config.summary
 if test "$BUILD_GIMP2" = "no" -o "$BUILD_CUPS" = "no" ; then
-    echo "VERY IMPORTANT:"
-    echo "If you expect to build the CUPS driver or the enhanced Print plugin for"
-    echo "GIMP, but the output above indicates that that component will not be built,"
-    echo "it almost certainly indicates that development packages required to build"
-    echo "that component are not installed on your system.  Please read the README"
-    echo "file and install the necessary development packages before reporting any"
-    echo "error to the development team.  Depending upon your operating system version,"
-    echo "you may have to install packages from the installation medium or over"
-    echo "the network."
-    echo
+    echo "VERY IMPORTANT:" |tee -a config.summary
+    echo "If you expect to build the CUPS driver or the enhanced Print plugin for" |tee -a config.summary
+    echo "GIMP, but the output above indicates that that component will not be built," |tee -a config.summary
+    echo "it almost certainly indicates that development packages required to build" |tee -a config.summary
+    echo "that component are not installed on your system.  Please read the README" |tee -a config.summary
+    echo "file and install the necessary development packages before reporting any" |tee -a config.summary
+    echo "error to the development team.  Depending upon your operating system version," |tee -a config.summary
+    echo "you may have to install packages from the installation medium or over" |tee -a config.summary
+    echo "the network." |tee -a config.summary
+    echo |tee -a config.summary
 fi
 echo "Finished configuring.  Please review CAREFULLY the configuration summary above."
+echo "This summary is also stored in config.summary"
 echo "Type 'make clean' followed by 'make' to build the package"
 echo "then 'make install' to install it."

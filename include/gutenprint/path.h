@@ -16,8 +16,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 /**
@@ -44,12 +43,28 @@ extern stp_list_t *stp_path_search(stp_list_t *dirlist,
 extern void stp_path_split(stp_list_t *list,
 			   const char *path);
 
-extern stp_list_t *stpi_data_path(void);
+/*
+ * Split a path (colon-separated list of strings) into
+ * its components.  The components may be anything that does not contain
+ * a token.
+ */
+extern stp_list_t *stp_generate_path(const char *path);
+
+extern stp_list_t *stp_data_path(void);
 
 extern stp_list_t *stpi_list_files_on_data_path(const char *name);
 
+/*
+ * Join a path and filename together.
+ */
 extern char *stpi_path_merge(const char *path, const char *file);
 
+/*
+ * Find the first occurrence of <file> on <path>.
+ * File must be a plain file and readable.
+ * Return value must be freed
+ */
+extern char *stp_path_find_file(const char *path, const char *file);
 
 #ifdef __cplusplus
   }

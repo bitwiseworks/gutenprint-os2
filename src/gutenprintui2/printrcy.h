@@ -1,19 +1,19 @@
-/* A Bison parser, made by GNU Bison 2.7.  */
+/* A Bison parser, made by GNU Bison 3.0.4.  */
 
 /* Bison interface for Yacc-like parsers in C
-   
-      Copyright (C) 1984, 1989-1990, 2000-2012 Free Software Foundation, Inc.
-   
+
+   Copyright (C) 1984, 1989-1990, 2000-2015 Free Software Foundation, Inc.
+
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation, either version 3 of the License, or
    (at your option) any later version.
-   
+
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
-   
+
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
@@ -26,13 +26,13 @@
    special exception, which will cause the skeleton and the resulting
    Bison output files to be licensed under the GNU General Public
    License without this special exception.
-   
+
    This special exception was added by the Free Software Foundation in
    version 2.2 of Bison.  */
 
 #ifndef YY_YY_PRINTRCY_H_INCLUDED
 # define YY_YY_PRINTRCY_H_INCLUDED
-/* Enabling traces.  */
+/* Debug traces.  */
 #ifndef YYDEBUG
 # define YYDEBUG 0
 #endif
@@ -40,114 +40,92 @@
 extern int yydebug;
 #endif
 
-/* Tokens.  */
+/* Token type.  */
 #ifndef YYTOKENTYPE
 # define YYTOKENTYPE
-   /* Put the tokens into the symbol table, so that GDB and other debuggers
-      know about them.  */
-   enum yytokentype {
-     tINT = 258,
-     tDOUBLE = 259,
-     tDIMENSION = 260,
-     tBOOLEAN = 261,
-     tSTRING = 262,
-     tWORD = 263,
-     tGSWORD = 264,
-     CURRENT_PRINTER = 265,
-     SHOW_ALL_PAPER_SIZES = 266,
-     PRINTER = 267,
-     DESTINATION = 268,
-     SCALING = 269,
-     ORIENTATION = 270,
-     AUTOSIZE_ROLL_PAPER = 271,
-     UNIT = 272,
-     DRIVER = 273,
-     LEFT = 274,
-     TOP = 275,
-     CUSTOM_PAGE_WIDTH = 276,
-     CUSTOM_PAGE_HEIGHT = 277,
-     OUTPUT_TYPE = 278,
-     PRINTRC_HDR = 279,
-     PARAMETER = 280,
-     QUEUE_NAME = 281,
-     OUTPUT_FILENAME = 282,
-     EXTRA_PRINTER_OPTIONS = 283,
-     CUSTOM_COMMAND = 284,
-     COMMAND_TYPE = 285,
-     GLOBAL_SETTINGS = 286,
-     GLOBAL = 287,
-     END_GLOBAL_SETTINGS = 288,
-     pINT = 289,
-     pSTRING_LIST = 290,
-     pFILE = 291,
-     pDOUBLE = 292,
-     pDIMENSION = 293,
-     pBOOLEAN = 294,
-     pCURVE = 295
-   };
+  enum yytokentype
+  {
+    tNUMBER = 258,
+    tBOOLEAN = 259,
+    tSTRING = 260,
+    tWORD = 261,
+    tGSWORD = 262,
+    CURRENT_PRINTER = 263,
+    SHOW_ALL_PAPER_SIZES = 264,
+    PRINTER = 265,
+    DESTINATION = 266,
+    SCALING = 267,
+    ORIENTATION = 268,
+    AUTOSIZE_ROLL_PAPER = 269,
+    UNIT = 270,
+    DRIVER = 271,
+    LEFT = 272,
+    TOP = 273,
+    CUSTOM_PAGE_WIDTH = 274,
+    CUSTOM_PAGE_HEIGHT = 275,
+    OUTPUT_TYPE = 276,
+    PRINTRC_HDR = 277,
+    PARAMETER = 278,
+    QUEUE_NAME = 279,
+    OUTPUT_FILENAME = 280,
+    EXTRA_PRINTER_OPTIONS = 281,
+    CUSTOM_COMMAND = 282,
+    COMMAND_TYPE = 283,
+    GLOBAL_SETTINGS = 284,
+    GLOBAL = 285,
+    END_GLOBAL_SETTINGS = 286,
+    pINT = 287,
+    pSTRING_LIST = 288,
+    pFILE = 289,
+    pDOUBLE = 290,
+    pDIMENSION = 291,
+    pBOOLEAN = 292,
+    pCURVE = 293
+  };
 #endif
 /* Tokens.  */
-#define tINT 258
-#define tDOUBLE 259
-#define tDIMENSION 260
-#define tBOOLEAN 261
-#define tSTRING 262
-#define tWORD 263
-#define tGSWORD 264
-#define CURRENT_PRINTER 265
-#define SHOW_ALL_PAPER_SIZES 266
-#define PRINTER 267
-#define DESTINATION 268
-#define SCALING 269
-#define ORIENTATION 270
-#define AUTOSIZE_ROLL_PAPER 271
-#define UNIT 272
-#define DRIVER 273
-#define LEFT 274
-#define TOP 275
-#define CUSTOM_PAGE_WIDTH 276
-#define CUSTOM_PAGE_HEIGHT 277
-#define OUTPUT_TYPE 278
-#define PRINTRC_HDR 279
-#define PARAMETER 280
-#define QUEUE_NAME 281
-#define OUTPUT_FILENAME 282
-#define EXTRA_PRINTER_OPTIONS 283
-#define CUSTOM_COMMAND 284
-#define COMMAND_TYPE 285
-#define GLOBAL_SETTINGS 286
-#define GLOBAL 287
-#define END_GLOBAL_SETTINGS 288
-#define pINT 289
-#define pSTRING_LIST 290
-#define pFILE 291
-#define pDOUBLE 292
-#define pDIMENSION 293
-#define pBOOLEAN 294
-#define pCURVE 295
+#define tNUMBER 258
+#define tBOOLEAN 259
+#define tSTRING 260
+#define tWORD 261
+#define tGSWORD 262
+#define CURRENT_PRINTER 263
+#define SHOW_ALL_PAPER_SIZES 264
+#define PRINTER 265
+#define DESTINATION 266
+#define SCALING 267
+#define ORIENTATION 268
+#define AUTOSIZE_ROLL_PAPER 269
+#define UNIT 270
+#define DRIVER 271
+#define LEFT 272
+#define TOP 273
+#define CUSTOM_PAGE_WIDTH 274
+#define CUSTOM_PAGE_HEIGHT 275
+#define OUTPUT_TYPE 276
+#define PRINTRC_HDR 277
+#define PARAMETER 278
+#define QUEUE_NAME 279
+#define OUTPUT_FILENAME 280
+#define EXTRA_PRINTER_OPTIONS 281
+#define CUSTOM_COMMAND 282
+#define COMMAND_TYPE 283
+#define GLOBAL_SETTINGS 284
+#define GLOBAL 285
+#define END_GLOBAL_SETTINGS 286
+#define pINT 287
+#define pSTRING_LIST 288
+#define pFILE 289
+#define pDOUBLE 290
+#define pDIMENSION 291
+#define pBOOLEAN 292
+#define pCURVE 293
 
+/* Value type.  */
 
-
-#if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
-
-# define yystype YYSTYPE /* obsolescent; will be withdrawn */
-# define YYSTYPE_IS_DECLARED 1
-#endif
 
 extern YYSTYPE yylval;
 
-#ifdef YYPARSE_PARAM
-#if defined __STDC__ || defined __cplusplus
-int yyparse (void *YYPARSE_PARAM);
-#else
-int yyparse ();
-#endif
-#else /* ! YYPARSE_PARAM */
-#if defined __STDC__ || defined __cplusplus
 int yyparse (void);
-#else
-int yyparse ();
-#endif
-#endif /* ! YYPARSE_PARAM */
 
 #endif /* !YY_YY_PRINTRCY_H_INCLUDED  */

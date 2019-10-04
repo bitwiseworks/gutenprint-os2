@@ -35,6 +35,7 @@
 #  include <string.h>
 #  include <ctype.h>
 #  include <errno.h>
+#  include <gutenprint/types.h>
 
 
 /*
@@ -71,7 +72,8 @@ typedef enum stp_mxml_type_e		/**** The XML node type. ****/
   STP_MXML_INTEGER,				/* Integer value */
   STP_MXML_OPAQUE,				/* Opaque string */
   STP_MXML_REAL,				/* Real value */
-  STP_MXML_TEXT				/* Text fragment */
+  STP_MXML_TEXT,				/* Text fragment */
+  STP_MXML_DIMENSION,				/* Dimensional value */
 } stp_mxml_type_t;
 
 typedef struct stp_mxml_attr_s		/**** An XML element attribute value. ****/
@@ -147,8 +149,11 @@ extern stp_mxml_node_t	*stp_mxmlNewElement(stp_mxml_node_t *parent, const char *
 extern stp_mxml_node_t	*stp_mxmlNewInteger(stp_mxml_node_t *parent, int integer);
 extern stp_mxml_node_t	*stp_mxmlNewOpaque(stp_mxml_node_t *parent, const char *opaque);
 extern stp_mxml_node_t	*stp_mxmlNewReal(stp_mxml_node_t *parent, double real);
+extern stp_mxml_node_t	*stp_mxmlNewDimension(stp_mxml_node_t *parent,
+					      stp_dimension_t real);
 extern stp_mxml_node_t	*stp_mxmlNewText(stp_mxml_node_t *parent, int whitespace,
 			             const char *string);
+extern stp_mxml_node_t	*stp_mxmlParent(stp_mxml_node_t *node);
 extern void		stp_mxmlRemove(stp_mxml_node_t *node);
 extern char		*stp_mxmlSaveAllocString(stp_mxml_node_t *node,
 			        	     int (*cb)(stp_mxml_node_t *, int));

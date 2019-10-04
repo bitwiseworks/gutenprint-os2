@@ -11,8 +11,7 @@
 ## GNU General Public License for more details.
 ##
 ## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
-## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+## along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ## Process this file with automake to produce Makefile.in.
 
@@ -127,7 +126,9 @@ html-stamp: $(MANUAL_SRC_FILES)
 	    $(LN_S) -f $(srcdir)/$$file $$file ; \
 	  done ; \
 	fi
-	$(DB2HTML) gutenprint.xml
+	-$(RM) -rf gutenprint
+	$(MKDIR_P) gutenprint
+	cd gutenprint && $(DB2HTML) ../gutenprint.xml
 	-$(RM) -rf $(HTMLDIR)
 	mv gutenprint $(HTMLDIR)
 	chmod a+rx $(HTMLDIR)
@@ -135,7 +136,7 @@ html-stamp: $(MANUAL_SRC_FILES)
 
 install-data-local: $(STANDARD_TARGETS)
 	if test -n '$(STANDARD_TARGETS)' ; then \
-	  $(mkdir_p) $(DESTDIR)$(datadir)/$(PACKAGE)/doc/$(HTMLDIR) ; \
+	  $(MKDIR_P) $(DESTDIR)$(datadir)/$(PACKAGE)/doc/$(HTMLDIR) ; \
 	  if test -f gutenprint.pdf ; then \
 	    $(INSTALL_DATA) gutenprint.pdf $(DESTDIR)$(datadir)/$(PACKAGE)/doc ; \
 	  elif test -f $(srcdir)/gutenprint.pdf ; then \

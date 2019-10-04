@@ -15,8 +15,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 /*
@@ -75,6 +74,7 @@ int global_steps;
 int global_halt_on_error = 0;
 double global_ink_limit;
 int global_noblackline;
+int global_colorline;
 int global_printer_width;
 int global_printer_height;
 int global_band_height;
@@ -96,6 +96,7 @@ int global_noscale = 0;
 int global_suppress_output = 0;
 int global_quiet = 0;
 int global_fail_verify_ok = 0;
+int global_round_size = 0;
 char *global_output = NULL;
 FILE *output = NULL;
 int write_to_process = 0;
@@ -112,6 +113,15 @@ static size_t
 c_strlen(const char *s)
 {
   return strlen(s);
+}
+
+static double
+roundto(double n)
+{
+  if (global_round_size)
+    return (double) ((int) n);
+  else
+    return n;
 }
 
 static char *
@@ -159,7 +169,7 @@ clear_testpattern(testpattern_t *p)
       p->d.pattern.levels[i] = 0;
     }
 }
-  
+
 
 testpattern_t *
 get_next_testpattern(void)
@@ -266,9 +276,9 @@ do_print(void)
   int status = 0;
   stp_vars_t *v;
   const stp_printer_t *the_printer;
-  int left, right, top, bottom;
-  int x, y;
-  int width, height;
+  stp_dimension_t left, right, top, bottom;
+  stp_resolution_t x, y;
+  stp_dimension_t width, height;
   int retval;
   stp_parameter_list_t params;
   int count;
@@ -409,43 +419,52 @@ do_print(void)
   stp_set_printer_defaults_soft(v, the_printer);
 
   stp_get_imageable_area(v, &left, &right, &bottom, &top);
+  left = roundto(left);
+  right = roundto(right);
+  bottom = roundto(bottom);
+  top = roundto(top);
   stp_describe_resolution(v, &x, &y);
   if (x < 0)
     x = 300;
   if (y < 0)
     y = 300;
 
-  width = right - left;
-  height = bottom - top;
+  width = roundto(right - left);
+  height = roundto(bottom - top);
 
   switch (global_size_mode)
     {
     case SIZE_PT:
-      top += (int) (global_xtop + .5);
-      left += (int) (global_xleft + .5);
-      width = (int) (global_hsize + .5);
-      height = (int) (global_vsize + .5);
+      top += roundto((int) (global_xtop + .5));
+      left += roundto((int) (global_xleft + .5));
+      width = roundto((int) (global_hsize + .5));
+      height = roundto((int) (global_vsize + .5));
       break;
     case SIZE_IN:
-      top += (int) ((global_xtop * 72) + .5);
-      left += (int) ((global_xleft * 72) + .5);
-      width = (int) ((global_hsize * 72) + .5);
-      height = (int) ((global_vsize * 72) + .5);
+      top += roundto((int) ((global_xtop * 72) + .5));
+      left += roundto((int) ((global_xleft * 72) + .5));
+      width = roundto((int) ((global_hsize * 72) + .5));
+      height = roundto((int) ((global_vsize * 72) + .5));
       break;
     case SIZE_MM:
-      top += (int) ((global_xtop * 72 / 25.4) + .5);
-      left += (int) ((global_xleft * 72 / 25.4) + .5);
-      width = (int) ((global_hsize * 72 / 25.4) + .5);
-      height = (int) ((global_vsize * 72 / 25.4) + .5);
+      top += roundto((int) ((global_xtop * 72 / 25.4) + .5));
+      left += roundto((int) ((global_xleft * 72 / 25.4) + .5));
+      width = roundto((int) ((global_hsize * 72 / 25.4) + .5));
+      height = roundto((int) ((global_vsize * 72 / 25.4) + .5));
       break;
     case SIZE_RELATIVE:
     default:
-      top += height * global_xtop;
-      left += width * global_xleft;
-      width *= global_hsize;
-      height *= global_vsize;
+      top = roundto(top + (height * global_xtop));
+      left = roundto(left + (width * global_xleft));
+      width = roundto(width * global_hsize);
+      height = roundto(height * global_vsize);
       break;
     }
+  if (width < 1)
+    width = 1;
+  if (height < 1)
+    height = 1;
+
   stp_set_width(v, width);
   stp_set_height(v, height);
 #if 0
@@ -585,6 +604,50 @@ invert_data(unsigned char *data, size_t byte_depth)
  * Emulate templates with macros -- rlk 20031014
  */
 
+#define FILL_CHANNELS_FUNCTION(T, bits)					\
+static void								\
+fill_channels_##bits(unsigned char *data, size_t len, size_t scount)	\
+{									\
+  int i;								\
+  int c;								\
+  scount = global_channel_depth;					\
+  T *s_data = (T *) data;						\
+  unsigned black_val = global_ink_limit * ((1 << bits) - 1);		\
+  unsigned blocksize = len / scount;					\
+  unsigned blocks = blocksize * scount;					\
+  unsigned extra = len - blocks;					\
+  memset(s_data, 0, sizeof(T) * len * scount);				\
+  for (c = 0; c < scount; c++)						\
+    {									\
+      for (i = 0; i < blocksize; i++)					\
+	{								\
+	  s_data[c] = black_val;					\
+	  s_data += global_channel_depth;				\
+	}								\
+    }									\
+  memset(s_data, 0xff, sizeof(T) * extra *				\
+	 global_channel_depth);						\
+}
+
+FILL_CHANNELS_FUNCTION(unsigned short, 16)
+FILL_CHANNELS_FUNCTION(unsigned char, 8)
+
+static void
+fill_channels(unsigned char *data, size_t len, size_t scount, size_t bytes)
+{
+  switch (bytes)
+    {
+    case 1:
+      fill_channels_8(data, len, scount);
+      break;
+    case 2:
+      fill_channels_16(data, len, scount);
+      break;
+    }
+  if (global_invert_data)
+    invert_data(data, bytes);
+}
+
 #define FILL_BLACK_FUNCTION(T, bits)					\
 static void								\
 fill_black_##bits(unsigned char *data, size_t len, size_t scount)	\
@@ -682,17 +745,22 @@ FILL_BLACK_FUNCTION(unsigned char, 8)
 static void
 fill_black(unsigned char *data, size_t len, size_t scount, size_t bytes)
 {
-  switch (bytes)
+  if (global_colorline)
+    fill_channels(data, len, global_channel_depth, bytes);
+  else
     {
-    case 1:
-      fill_black_8(data, len, scount);
-      break;
-    case 2:
-      fill_black_16(data, len, scount);
-      break;
+      switch (bytes)
+	{
+	case 1:
+	  fill_black_8(data, len, scount);
+	  break;
+	case 2:
+	  fill_black_16(data, len, scount);
+	  break;
+	}
+      if (global_invert_data)
+	invert_data(data, bytes);
     }
-  if (global_invert_data)
-    invert_data(data, bytes);
 }
 
 #define FILL_WHITE_FUNCTION(T, bits)					\
