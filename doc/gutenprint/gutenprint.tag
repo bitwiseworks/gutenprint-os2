@@ -89,6 +89,41 @@
       <anchor>gae05ba5cfe8c03e2435348d6c5488d87e</anchor>
       <arglist>(const stp_array_t *array)</arglist>
     </member>
+    <member kind="function">
+      <type>int</type>
+      <name>stp_array_write</name>
+      <anchorfile>group__array.html</anchorfile>
+      <anchor>ga6a53d58a43d00689899b024614bac1eb</anchor>
+      <arglist>(FILE *file, const stp_array_t *array)</arglist>
+    </member>
+    <member kind="function">
+      <type>char *</type>
+      <name>stp_array_write_string</name>
+      <anchorfile>group__array.html</anchorfile>
+      <anchor>ga1e2262c54ced078e6e5e38113aeeddf5</anchor>
+      <arglist>(const stp_array_t *array)</arglist>
+    </member>
+    <member kind="function">
+      <type>stp_array_t *</type>
+      <name>stp_array_create_from_stream</name>
+      <anchorfile>group__array.html</anchorfile>
+      <anchor>ga497c7ee10ce8d0f90a7289d4f81688ce</anchor>
+      <arglist>(FILE *fp)</arglist>
+    </member>
+    <member kind="function">
+      <type>stp_array_t *</type>
+      <name>stp_array_create_from_file</name>
+      <anchorfile>group__array.html</anchorfile>
+      <anchor>gaf481883d42f37cba19a2d7463b29ac7b</anchor>
+      <arglist>(const char *file)</arglist>
+    </member>
+    <member kind="function">
+      <type>stp_array_t *</type>
+      <name>stp_array_create_from_string</name>
+      <anchorfile>group__array.html</anchorfile>
+      <anchor>gaeb16e8b11cb35960bbacb5131bf15f43</anchor>
+      <arglist>(const char *string)</arglist>
+    </member>
   </compound>
   <compound kind="file">
     <name>bit-ops.h</name>
@@ -356,6 +391,13 @@
       <name>stp_channel_get_output</name>
       <anchorfile>channel_8h.html</anchorfile>
       <anchor>a3ad58abee1208b328da69e49d230a54f</anchor>
+      <arglist>(const stp_vars_t *v)</arglist>
+    </member>
+    <member kind="function">
+      <type>unsigned char *</type>
+      <name>stp_channel_get_output_8bit</name>
+      <anchorfile>channel_8h.html</anchorfile>
+      <anchor>a0abc4160dc84b35c884ba4d8ebfcbbfd</anchor>
       <arglist>(const stp_vars_t *v)</arglist>
     </member>
   </compound>
@@ -1541,6 +1583,7 @@
     <includes id="image_8h" name="image.h" local="no" imported="no">gutenprint/image.h</includes>
     <includes id="paper_8h" name="paper.h" local="no" imported="no">gutenprint/paper.h</includes>
     <includes id="printers_8h" name="printers.h" local="no" imported="no">gutenprint/printers.h</includes>
+    <includes id="refcache_8h" name="refcache.h" local="no" imported="no">gutenprint/refcache.h</includes>
     <includes id="sequence_8h" name="sequence.h" local="no" imported="no">gutenprint/sequence.h</includes>
     <includes id="string-list_8h" name="string-list.h" local="no" imported="no">gutenprint/string-list.h</includes>
     <includes id="util_8h" name="util.h" local="no" imported="no">gutenprint/util.h</includes>
@@ -1550,6 +1593,7 @@
     <name>image.h</name>
     <path>/home/rlk/sandbox/gimp-print-source/include/gutenprint/</path>
     <filename>image_8h</filename>
+    <includes id="types_8h" name="types.h" local="no" imported="no">gutenprint/types.h</includes>
     <class kind="struct">stp_image</class>
     <member kind="define">
       <type>#define</type>
@@ -1968,6 +2012,7 @@
     <name>mxml.h</name>
     <path>/home/rlk/sandbox/gimp-print-source/include/gutenprint/</path>
     <filename>mxml_8h</filename>
+    <includes id="types_8h" name="types.h" local="no" imported="no">gutenprint/types.h</includes>
     <class kind="struct">stp_mxml_attr_s</class>
     <class kind="struct">stp_mxml_value_s</class>
     <class kind="struct">stp_mxml_text_s</class>
@@ -2150,6 +2195,12 @@
       <anchor>af8b58610b5fb382d0f075cb3bcf3b6baaccc874638f0a0d375e1066d8c82c8be9</anchor>
       <arglist></arglist>
     </member>
+    <member kind="enumvalue">
+      <name>STP_MXML_DIMENSION</name>
+      <anchorfile>mxml_8h.html</anchorfile>
+      <anchor>af8b58610b5fb382d0f075cb3bcf3b6baa587b6fa39b7396c3a0d05522716eeb65</anchor>
+      <arglist></arglist>
+    </member>
     <member kind="function">
       <type>void</type>
       <name>stp_mxmlAdd</name>
@@ -2236,10 +2287,24 @@
     </member>
     <member kind="function">
       <type>stp_mxml_node_t *</type>
+      <name>stp_mxmlNewDimension</name>
+      <anchorfile>mxml_8h.html</anchorfile>
+      <anchor>aa05fdf7cb3b5ad98a0afc4a480d71d6f</anchor>
+      <arglist>(stp_mxml_node_t *parent, stp_dimension_t real)</arglist>
+    </member>
+    <member kind="function">
+      <type>stp_mxml_node_t *</type>
       <name>stp_mxmlNewText</name>
       <anchorfile>mxml_8h.html</anchorfile>
       <anchor>a05bd9944cadbef034730a53ca47c9f6a</anchor>
       <arglist>(stp_mxml_node_t *parent, int whitespace, const char *string)</arglist>
+    </member>
+    <member kind="function">
+      <type>stp_mxml_node_t *</type>
+      <name>stp_mxmlParent</name>
+      <anchorfile>mxml_8h.html</anchorfile>
+      <anchor>afa6f19c52b4f937ab65bf0c5642279ff</anchor>
+      <arglist>(stp_mxml_node_t *node)</arglist>
     </member>
     <member kind="function">
       <type>void</type>
@@ -2295,6 +2360,7 @@
     <name>paper.h</name>
     <path>/home/rlk/sandbox/gimp-print-source/include/gutenprint/</path>
     <filename>paper_8h</filename>
+    <includes id="types_8h" name="types.h" local="no" imported="no">gutenprint/types.h</includes>
     <includes id="vars_8h" name="vars.h" local="no" imported="no">gutenprint/vars.h</includes>
     <class kind="struct">stp_papersize_t</class>
     <member kind="enumeration">
@@ -2347,53 +2413,19 @@
       <anchor>gga31255c4eebfaaf5cd319e5638a6a3069a660290248a563e7590202afd3ba68fb4</anchor>
       <arglist></arglist>
     </member>
-    <member kind="enumvalue">
-      <name>PAPERSIZE_TYPE_SPECIAL</name>
-      <anchorfile>group__papersize.html</anchorfile>
-      <anchor>gga31255c4eebfaaf5cd319e5638a6a3069a7f5ebb4b034dda5137ff6296d9dc67ac</anchor>
-      <arglist></arglist>
-    </member>
-    <member kind="function">
-      <type>int</type>
-      <name>stp_known_papersizes</name>
-      <anchorfile>group__papersize.html</anchorfile>
-      <anchor>ga84fd0bad33b134217f54fa8c1e6c8b99</anchor>
-      <arglist>(void)</arglist>
-    </member>
     <member kind="function">
       <type>const stp_papersize_t *</type>
-      <name>stp_get_papersize_by_name</name>
+      <name>stp_describe_papersize</name>
       <anchorfile>group__papersize.html</anchorfile>
-      <anchor>ga60f3dee8f26cac05d8d6fcaff1e39630</anchor>
-      <arglist>(const char *name)</arglist>
-    </member>
-    <member kind="function">
-      <type>const stp_papersize_t *</type>
-      <name>stp_get_papersize_by_size</name>
-      <anchorfile>group__papersize.html</anchorfile>
-      <anchor>ga1484a5e75a2b2921bbe0c9e17deb0b77</anchor>
-      <arglist>(int length, int width)</arglist>
-    </member>
-    <member kind="function">
-      <type>const stp_papersize_t *</type>
-      <name>stp_get_papersize_by_size_exact</name>
-      <anchorfile>group__papersize.html</anchorfile>
-      <anchor>ga879cd515ca2eb5fd8cd76ae62f4bfa4e</anchor>
-      <arglist>(int length, int width)</arglist>
-    </member>
-    <member kind="function">
-      <type>const stp_papersize_t *</type>
-      <name>stp_get_papersize_by_index</name>
-      <anchorfile>group__papersize.html</anchorfile>
-      <anchor>gab2e9f694a3b90aeaaa14d6af3b5fe75a</anchor>
-      <arglist>(int idx)</arglist>
+      <anchor>gaa1030bc16945705116695eedf09ecd17</anchor>
+      <arglist>(const stp_vars_t *v, const char *name)</arglist>
     </member>
     <member kind="function">
       <type>void</type>
       <name>stp_default_media_size</name>
       <anchorfile>group__papersize.html</anchorfile>
-      <anchor>ga33c0be56646361b1ce85a9d338336dd3</anchor>
-      <arglist>(const stp_vars_t *v, int *width, int *height)</arglist>
+      <anchor>gaa6e3d956dcc13c8aa2e489164aacf442</anchor>
+      <arglist>(const stp_vars_t *v, stp_dimension_t *width, stp_dimension_t *height)</arglist>
     </member>
   </compound>
   <compound kind="file">
@@ -2416,9 +2448,16 @@
     </member>
     <member kind="function">
       <type>stp_list_t *</type>
-      <name>stpi_data_path</name>
+      <name>stp_generate_path</name>
       <anchorfile>path_8h.html</anchorfile>
-      <anchor>a26017fec6cd9c9e44bc58b4cac9b9c35</anchor>
+      <anchor>a6e2d4cfced3009f5ad60f8b2b0328c28</anchor>
+      <arglist>(const char *path)</arglist>
+    </member>
+    <member kind="function">
+      <type>stp_list_t *</type>
+      <name>stp_data_path</name>
+      <anchorfile>path_8h.html</anchorfile>
+      <anchor>adcce49e50d50319f62464bee80a80348</anchor>
       <arglist>(void)</arglist>
     </member>
     <member kind="function">
@@ -2435,28 +2474,27 @@
       <anchor>a17eca69c41eb6cca959ab47e3c1a3aa2</anchor>
       <arglist>(const char *path, const char *file)</arglist>
     </member>
+    <member kind="function">
+      <type>char *</type>
+      <name>stp_path_find_file</name>
+      <anchorfile>path_8h.html</anchorfile>
+      <anchor>a87477ad678797441f2b8f0fd9d160d58</anchor>
+      <arglist>(const char *path, const char *file)</arglist>
+    </member>
   </compound>
   <compound kind="file">
     <name>printers.h</name>
     <path>/home/rlk/sandbox/gimp-print-source/include/gutenprint/</path>
     <filename>printers_8h</filename>
+    <includes id="types_8h" name="types.h" local="no" imported="no">gutenprint/types.h</includes>
     <includes id="string-list_8h" name="string-list.h" local="no" imported="no">gutenprint/string-list.h</includes>
     <includes id="list_8h" name="list.h" local="no" imported="no">gutenprint/list.h</includes>
     <includes id="vars_8h" name="vars.h" local="no" imported="no">gutenprint/vars.h</includes>
-    <class kind="struct">stp_printfuncs_t</class>
-    <class kind="struct">stp_family</class>
     <member kind="typedef">
       <type>struct stp_printer</type>
       <name>stp_printer_t</name>
       <anchorfile>group__printer.html</anchorfile>
       <anchor>gacddc2ce7fa4e0a68fcc30c123503738f</anchor>
-      <arglist></arglist>
-    </member>
-    <member kind="typedef">
-      <type>struct stp_family</type>
-      <name>stp_family_t</name>
-      <anchorfile>group__printer.html</anchorfile>
-      <anchor>ga66a5e7cf2b1743a46bd78cb851e1d0a4</anchor>
       <arglist></arglist>
     </member>
     <member kind="function">
@@ -2493,13 +2531,6 @@
       <anchorfile>group__printer.html</anchorfile>
       <anchor>gadce65b83e3dd0ffcb75591ed3ba81155</anchor>
       <arglist>(const char *device_id)</arglist>
-    </member>
-    <member kind="function">
-      <type>const stp_printer_t *</type>
-      <name>stp_get_printer_by_foomatic_id</name>
-      <anchorfile>group__printer.html</anchorfile>
-      <anchor>gacd449b7863a5fcddb6bdb602079448f8</anchor>
-      <arglist>(const char *foomatic_id)</arglist>
     </member>
     <member kind="function">
       <type>const stp_printer_t *</type>
@@ -2548,13 +2579,6 @@
       <name>stp_printer_get_manufacturer</name>
       <anchorfile>group__printer.html</anchorfile>
       <anchor>gab99dd05c42aed848d1567f2b346fb4f4</anchor>
-      <arglist>(const stp_printer_t *p)</arglist>
-    </member>
-    <member kind="function">
-      <type>const char *</type>
-      <name>stp_printer_get_foomatic_id</name>
-      <anchorfile>group__printer.html</anchorfile>
-      <anchor>gaac52d241cc86a10965046afc0a8c8a41</anchor>
       <arglist>(const stp_printer_t *p)</arglist>
     </member>
     <member kind="function">
@@ -2635,20 +2659,6 @@
       <arglist>(stp_vars_t *v)</arglist>
     </member>
     <member kind="function">
-      <type>int</type>
-      <name>stp_family_register</name>
-      <anchorfile>group__printer.html</anchorfile>
-      <anchor>ga1c6d389f49a185ca24546107bd6f4993</anchor>
-      <arglist>(stp_list_t *family)</arglist>
-    </member>
-    <member kind="function">
-      <type>int</type>
-      <name>stp_family_unregister</name>
-      <anchorfile>group__printer.html</anchorfile>
-      <anchor>ga67e5c18254f7ad0b0fd77b4cc2265405</anchor>
-      <arglist>(stp_list_t *family)</arglist>
-    </member>
-    <member kind="function">
       <type>void</type>
       <name>stp_initialize_printer_defaults</name>
       <anchorfile>group__printer.html</anchorfile>
@@ -2675,6 +2685,68 @@
       <anchorfile>group__printer.html</anchorfile>
       <anchor>ga50b48bab8d6d1734c3a0f6622d65582e</anchor>
       <arglist>(const stp_vars_t *v)</arglist>
+    </member>
+  </compound>
+  <compound kind="file">
+    <name>refcache.h</name>
+    <path>/home/rlk/sandbox/gimp-print-source/include/gutenprint/</path>
+    <filename>refcache_8h</filename>
+    <includes id="string-list_8h" name="string-list.h" local="no" imported="no">gutenprint/string-list.h</includes>
+    <member kind="function">
+      <type>int</type>
+      <name>stp_refcache_create</name>
+      <anchorfile>refcache_8h.html</anchorfile>
+      <anchor>a42d7aaab0ff26fea15dcd35dbb2c9bd6</anchor>
+      <arglist>(const char *name)</arglist>
+    </member>
+    <member kind="function">
+      <type>void *</type>
+      <name>stp_refcache_find_item</name>
+      <anchorfile>refcache_8h.html</anchorfile>
+      <anchor>a876b775bddce2f266bae409947d71598</anchor>
+      <arglist>(const char *cache, const char *item)</arglist>
+    </member>
+    <member kind="function">
+      <type>int</type>
+      <name>stp_refcache_add_item</name>
+      <anchorfile>refcache_8h.html</anchorfile>
+      <anchor>a174910060e5f488c1f009b3d06196f2f</anchor>
+      <arglist>(const char *cache, const char *item, void *data)</arglist>
+    </member>
+    <member kind="function">
+      <type>void</type>
+      <name>stp_refcache_remove_item</name>
+      <anchorfile>refcache_8h.html</anchorfile>
+      <anchor>a8f4b27de71bfca181f9789308dc6891b</anchor>
+      <arglist>(const char *cache, const char *item)</arglist>
+    </member>
+    <member kind="function">
+      <type>void</type>
+      <name>stp_refcache_replace_item</name>
+      <anchorfile>refcache_8h.html</anchorfile>
+      <anchor>ae2aa8792c2b99f6602b148eadaea0612</anchor>
+      <arglist>(const char *cache, const char *item, void *data)</arglist>
+    </member>
+    <member kind="function">
+      <type>void</type>
+      <name>stp_refcache_destroy</name>
+      <anchorfile>refcache_8h.html</anchorfile>
+      <anchor>a514558c52255a7386a618b01de09bb40</anchor>
+      <arglist>(const char *cache)</arglist>
+    </member>
+    <member kind="function">
+      <type>const stp_string_list_t *</type>
+      <name>stp_refcache_list_caches</name>
+      <anchorfile>refcache_8h.html</anchorfile>
+      <anchor>a90792910d4f963063788fdeb37ecadac</anchor>
+      <arglist>(void)</arglist>
+    </member>
+    <member kind="function">
+      <type>const stp_string_list_t *</type>
+      <name>stp_refcache_list_cache_items</name>
+      <anchorfile>refcache_8h.html</anchorfile>
+      <anchor>a81aac994927dff8647838e7b3db48f25</anchor>
+      <arglist>(const char *cache)</arglist>
     </member>
   </compound>
   <compound kind="file">
@@ -2990,6 +3062,39 @@
     </member>
   </compound>
   <compound kind="file">
+    <name>types.h</name>
+    <path>/home/rlk/sandbox/gimp-print-source/include/gutenprint/</path>
+    <filename>types_8h</filename>
+    <member kind="define">
+      <type>#define</type>
+      <name>STP_DABS</name>
+      <anchorfile>types_8h.html</anchorfile>
+      <anchor>ae5402caf2f46f47462f10128b331a2c5</anchor>
+      <arglist></arglist>
+    </member>
+    <member kind="define">
+      <type>#define</type>
+      <name>STP_RABS</name>
+      <anchorfile>types_8h.html</anchorfile>
+      <anchor>aaa4e0d8702aaa903efabd0f1756a23fa</anchor>
+      <arglist></arglist>
+    </member>
+    <member kind="typedef">
+      <type>double</type>
+      <name>stp_dimension_t</name>
+      <anchorfile>types_8h.html</anchorfile>
+      <anchor>a28331211ca816787023d0444a79585ac</anchor>
+      <arglist></arglist>
+    </member>
+    <member kind="typedef">
+      <type>int</type>
+      <name>stp_resolution_t</name>
+      <anchorfile>types_8h.html</anchorfile>
+      <anchor>a8c45677b01aee135a134e452cf6c4d9b</anchor>
+      <arglist></arglist>
+    </member>
+  </compound>
+  <compound kind="file">
     <name>util.h</name>
     <path>/home/rlk/sandbox/gimp-print-source/include/gutenprint/</path>
     <filename>util_8h</filename>
@@ -3179,6 +3284,27 @@
     </member>
     <member kind="define">
       <type>#define</type>
+      <name>STP_DBG_ESCP2_XML</name>
+      <anchorfile>group__util.html</anchorfile>
+      <anchor>gaec840296af0019717a124a0729a350c3</anchor>
+      <arglist></arglist>
+    </member>
+    <member kind="define">
+      <type>#define</type>
+      <name>STP_DBG_ARRAY_ERRORS</name>
+      <anchorfile>group__util.html</anchorfile>
+      <anchor>ga03a21a25505fda88899be490974d0bec</anchor>
+      <arglist></arglist>
+    </member>
+    <member kind="define">
+      <type>#define</type>
+      <name>STP_DBG_STATIC_TIME</name>
+      <anchorfile>group__util.html</anchorfile>
+      <anchor>ga276a7ec27323b944bea0d53f2cecae1b</anchor>
+      <arglist></arglist>
+    </member>
+    <member kind="define">
+      <type>#define</type>
       <name>STP_SAFE_FREE</name>
       <anchorfile>group__util.html</anchorfile>
       <anchor>gaa5a86efbbd3e2eb391718d82a1d7ffcc</anchor>
@@ -3189,6 +3315,62 @@
       <name>stp_init</name>
       <anchorfile>group__util.html</anchorfile>
       <anchor>ga2ce0a2e8887fe5ff7f3eed1370d0d691</anchor>
+      <arglist>(void)</arglist>
+    </member>
+    <member kind="function">
+      <type>void</type>
+      <name>stp_set_global_errfunc</name>
+      <anchorfile>group__util.html</anchorfile>
+      <anchor>ga7c23e26a884648478dc2100d7d783e51</anchor>
+      <arglist>(stp_outfunc_t val)</arglist>
+    </member>
+    <member kind="function">
+      <type>stp_outfunc_t</type>
+      <name>stp_get_global_errfunc</name>
+      <anchorfile>group__util.html</anchorfile>
+      <anchor>ga933c7d15ae9304f18a7be077310d837d</anchor>
+      <arglist>(void)</arglist>
+    </member>
+    <member kind="function">
+      <type>void</type>
+      <name>stp_set_global_dbgfunc</name>
+      <anchorfile>group__util.html</anchorfile>
+      <anchor>ga62919e5752f68e29bbde0d52c7acba16</anchor>
+      <arglist>(stp_outfunc_t val)</arglist>
+    </member>
+    <member kind="function">
+      <type>stp_outfunc_t</type>
+      <name>stp_get_global_dbgfunc</name>
+      <anchorfile>group__util.html</anchorfile>
+      <anchor>ga035d55e39a1cd5f26fef7fbef867127e</anchor>
+      <arglist>(void)</arglist>
+    </member>
+    <member kind="function">
+      <type>void</type>
+      <name>stp_set_global_errdata</name>
+      <anchorfile>group__util.html</anchorfile>
+      <anchor>gaa2fc8c592c560caf6dcf4f86b62d76c4</anchor>
+      <arglist>(void *val)</arglist>
+    </member>
+    <member kind="function">
+      <type>void *</type>
+      <name>stp_get_global_errdata</name>
+      <anchorfile>group__util.html</anchorfile>
+      <anchor>ga022fb7959595871a61323b7778a9c107</anchor>
+      <arglist>(void)</arglist>
+    </member>
+    <member kind="function">
+      <type>void</type>
+      <name>stp_set_global_dbgdata</name>
+      <anchorfile>group__util.html</anchorfile>
+      <anchor>gafbbfe706e64b848d779e448370d0c574</anchor>
+      <arglist>(void *val)</arglist>
+    </member>
+    <member kind="function">
+      <type>void *</type>
+      <name>stp_get_global_dbgdata</name>
+      <anchorfile>group__util.html</anchorfile>
+      <anchor>ga0b34dbe6fa1029df485b165064b64f85</anchor>
       <arglist>(void)</arglist>
     </member>
     <member kind="function">
@@ -3434,12 +3616,14 @@
     <name>vars.h</name>
     <path>/home/rlk/sandbox/gimp-print-source/include/gutenprint/</path>
     <filename>vars_8h</filename>
+    <includes id="types_8h" name="types.h" local="no" imported="no">gutenprint/types.h</includes>
     <includes id="array_8h" name="array.h" local="no" imported="no">gutenprint/array.h</includes>
     <includes id="curve_8h" name="curve.h" local="no" imported="no">gutenprint/curve.h</includes>
     <includes id="string-list_8h" name="string-list.h" local="no" imported="no">gutenprint/string-list.h</includes>
     <class kind="struct">stp_raw_t</class>
     <class kind="struct">stp_double_bound_t</class>
     <class kind="struct">stp_int_bound_t</class>
+    <class kind="struct">stp_dimension_bound_t</class>
     <class kind="struct">stp_parameter_t</class>
     <member kind="define">
       <type>#define</type>
@@ -3721,6 +3905,13 @@
       <arglist></arglist>
     </member>
     <member kind="function">
+      <type>void</type>
+      <name>stp_vars_print_error</name>
+      <anchorfile>group__vars.html</anchorfile>
+      <anchor>ga05413d52295467beedf9218e70c7bc36</anchor>
+      <arglist>(const stp_vars_t *v, const char *prefix)</arglist>
+    </member>
+    <member kind="function">
       <type>stp_vars_t *</type>
       <name>stp_vars_create</name>
       <anchorfile>group__vars.html</anchorfile>
@@ -3794,84 +3985,84 @@
       <type>void</type>
       <name>stp_set_left</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga3b0cc83e87247854ecafd46a6e446bcb</anchor>
-      <arglist>(stp_vars_t *v, int val)</arglist>
+      <anchor>ga43723e71ac3d128cb60f3a8647da2bda</anchor>
+      <arglist>(stp_vars_t *v, stp_dimension_t val)</arglist>
     </member>
     <member kind="function">
-      <type>int</type>
+      <type>stp_dimension_t</type>
       <name>stp_get_left</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga5c02ee2422d86e4bcdcae613c70c9e1e</anchor>
+      <anchor>ga552aff414bcb0d0e47bcecbbae151200</anchor>
       <arglist>(const stp_vars_t *v)</arglist>
     </member>
     <member kind="function">
       <type>void</type>
       <name>stp_set_top</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga557b5ad44d3b1da8392496681624ad8b</anchor>
-      <arglist>(stp_vars_t *v, int val)</arglist>
+      <anchor>ga0097b9757c0145621bd734404e165310</anchor>
+      <arglist>(stp_vars_t *v, stp_dimension_t val)</arglist>
     </member>
     <member kind="function">
-      <type>int</type>
+      <type>stp_dimension_t</type>
       <name>stp_get_top</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga292132b97b20a6d034e22f4146d36131</anchor>
+      <anchor>ga78161d3b7f6da93d4ca69a43c72a6026</anchor>
       <arglist>(const stp_vars_t *v)</arglist>
     </member>
     <member kind="function">
       <type>void</type>
       <name>stp_set_width</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga3a852ce7e42d7f8e0cef6c7d399e0491</anchor>
-      <arglist>(stp_vars_t *v, int val)</arglist>
+      <anchor>ga7d9fe91d4061a278fb81407c108051c2</anchor>
+      <arglist>(stp_vars_t *v, stp_dimension_t val)</arglist>
     </member>
     <member kind="function">
-      <type>int</type>
+      <type>stp_dimension_t</type>
       <name>stp_get_width</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga1c54d99b94c69a67eb4ae0349a4720e7</anchor>
+      <anchor>ga5ea05bffa12b1b9ab4d00967b4b15985</anchor>
       <arglist>(const stp_vars_t *v)</arglist>
     </member>
     <member kind="function">
       <type>void</type>
       <name>stp_set_height</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga8ce73c5efa41f005936d5f84c44c6667</anchor>
-      <arglist>(stp_vars_t *v, int val)</arglist>
+      <anchor>ga33dbc18695131be971381f3193e3d6e3</anchor>
+      <arglist>(stp_vars_t *v, stp_dimension_t val)</arglist>
     </member>
     <member kind="function">
-      <type>int</type>
+      <type>stp_dimension_t</type>
       <name>stp_get_height</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga8731a92f5d3047e00ba33577821d5aec</anchor>
+      <anchor>gaa8bdf68b63b9803f0beabd8575c16e9c</anchor>
       <arglist>(const stp_vars_t *v)</arglist>
     </member>
     <member kind="function">
       <type>void</type>
       <name>stp_set_page_width</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga639be0da07c3e5b7dc6d68ac2aa999e9</anchor>
-      <arglist>(stp_vars_t *v, int val)</arglist>
+      <anchor>gad3c936e04f59788bddd4d35152d31b75</anchor>
+      <arglist>(stp_vars_t *v, stp_dimension_t val)</arglist>
     </member>
     <member kind="function">
-      <type>int</type>
+      <type>stp_dimension_t</type>
       <name>stp_get_page_width</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>gaad2d305eed993707d22263b54578a39b</anchor>
+      <anchor>ga23866dae33987db3dc68c664d4efcb1d</anchor>
       <arglist>(const stp_vars_t *v)</arglist>
     </member>
     <member kind="function">
       <type>void</type>
       <name>stp_set_page_height</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga83326bacb8b92149af1b70457b23bc8f</anchor>
-      <arglist>(stp_vars_t *v, int val)</arglist>
+      <anchor>gab3700a20712230a9a79046d81dcc758d</anchor>
+      <arglist>(stp_vars_t *v, stp_dimension_t val)</arglist>
     </member>
     <member kind="function">
-      <type>int</type>
+      <type>stp_dimension_t</type>
       <name>stp_get_page_height</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>gac0c4928fa488bb95e73ba9b8aa932584</anchor>
+      <anchor>gaa3173c007ecc0d426e46dfd3c13075cf</anchor>
       <arglist>(const stp_vars_t *v)</arglist>
     </member>
     <member kind="function">
@@ -3904,6 +4095,20 @@
     </member>
     <member kind="function">
       <type>void</type>
+      <name>stp_set_dbgfunc</name>
+      <anchorfile>group__vars.html</anchorfile>
+      <anchor>ga86efc506f03b5a7481f35b2f7f9a7e79</anchor>
+      <arglist>(stp_vars_t *v, stp_outfunc_t val)</arglist>
+    </member>
+    <member kind="function">
+      <type>stp_outfunc_t</type>
+      <name>stp_get_dbgfunc</name>
+      <anchorfile>group__vars.html</anchorfile>
+      <anchor>ga9455648cb309cb4755923b5a3d20a4c4</anchor>
+      <arglist>(const stp_vars_t *v)</arglist>
+    </member>
+    <member kind="function">
+      <type>void</type>
       <name>stp_set_outdata</name>
       <anchorfile>group__vars.html</anchorfile>
       <anchor>gac2b3408200a9676e6c6063cc0ae2f4bd</anchor>
@@ -3928,6 +4133,20 @@
       <name>stp_get_errdata</name>
       <anchorfile>group__vars.html</anchorfile>
       <anchor>gad08bdcd721d37f52993c1862e25ebaf7</anchor>
+      <arglist>(const stp_vars_t *v)</arglist>
+    </member>
+    <member kind="function">
+      <type>void</type>
+      <name>stp_set_dbgdata</name>
+      <anchorfile>group__vars.html</anchorfile>
+      <anchor>ga681da4782790a614913221d0c4ec4a54</anchor>
+      <arglist>(stp_vars_t *v, void *val)</arglist>
+    </member>
+    <member kind="function">
+      <type>void *</type>
+      <name>stp_get_dbgdata</name>
+      <anchorfile>group__vars.html</anchorfile>
+      <anchor>gaa3c75772969cff226a7da34b7ec0d52e</anchor>
       <arglist>(const stp_vars_t *v)</arglist>
     </member>
     <member kind="function">
@@ -4074,8 +4293,8 @@
       <type>void</type>
       <name>stp_set_dimension_parameter</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga6ca7898c212230cdbdc70ada2efb1417</anchor>
-      <arglist>(stp_vars_t *v, const char *parameter, int value)</arglist>
+      <anchor>gae08f8a1ee0fc7dfc47bdfe13c9fd2c5a</anchor>
+      <arglist>(stp_vars_t *v, const char *parameter, stp_dimension_t value)</arglist>
     </member>
     <member kind="function">
       <type>void</type>
@@ -4158,8 +4377,8 @@
       <type>void</type>
       <name>stp_set_default_dimension_parameter</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>gab6f1820cadd75a4311bfc49b01de447b</anchor>
-      <arglist>(stp_vars_t *v, const char *parameter, int value)</arglist>
+      <anchor>ga472f76e75c57ab5c88e8055f467b8e50</anchor>
+      <arglist>(stp_vars_t *v, const char *parameter, stp_dimension_t value)</arglist>
     </member>
     <member kind="function">
       <type>void</type>
@@ -4218,10 +4437,10 @@
       <arglist>(const stp_vars_t *v, const char *parameter)</arglist>
     </member>
     <member kind="function">
-      <type>int</type>
+      <type>stp_dimension_t</type>
       <name>stp_get_dimension_parameter</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga3c8d1333086ca5a01a3439f94d9f94d3</anchor>
+      <anchor>gaf093cba0d9ae5b8ad88d6f4bc55522f2</anchor>
       <arglist>(const stp_vars_t *v, const char *parameter)</arglist>
     </member>
     <member kind="function">
@@ -4606,36 +4825,36 @@
       <type>void</type>
       <name>stp_get_media_size</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>gac9e6d740ffc4cff5dc7d0bf106a3e7df</anchor>
-      <arglist>(const stp_vars_t *v, int *width, int *height)</arglist>
+      <anchor>gaec582fdf4df9806b1a403d9bda45db71</anchor>
+      <arglist>(const stp_vars_t *v, stp_dimension_t *width, stp_dimension_t *height)</arglist>
     </member>
     <member kind="function">
       <type>void</type>
       <name>stp_get_imageable_area</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga67d1e68ed47e5b554f2021fca1f01978</anchor>
-      <arglist>(const stp_vars_t *v, int *left, int *right, int *bottom, int *top)</arglist>
+      <anchor>ga39789de068575617708d8178875cd707</anchor>
+      <arglist>(const stp_vars_t *v, stp_dimension_t *left, stp_dimension_t *right, stp_dimension_t *bottom, stp_dimension_t *top)</arglist>
     </member>
     <member kind="function">
       <type>void</type>
       <name>stp_get_maximum_imageable_area</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>gad17cadb7fd78bffb759f2213a1a90df6</anchor>
-      <arglist>(const stp_vars_t *v, int *left, int *right, int *bottom, int *top)</arglist>
+      <anchor>gaacd796aa1bc61acc395f9409d912df06</anchor>
+      <arglist>(const stp_vars_t *v, stp_dimension_t *left, stp_dimension_t *right, stp_dimension_t *bottom, stp_dimension_t *top)</arglist>
     </member>
     <member kind="function">
       <type>void</type>
       <name>stp_get_size_limit</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga0c8ee62453baff3d2c00e0ccae67b049</anchor>
-      <arglist>(const stp_vars_t *v, int *max_width, int *max_height, int *min_width, int *min_height)</arglist>
+      <anchor>gae0e7959db2151f1c705ee3962e9f5d9e</anchor>
+      <arglist>(const stp_vars_t *v, stp_dimension_t *max_width, stp_dimension_t *max_height, stp_dimension_t *min_width, stp_dimension_t *min_height)</arglist>
     </member>
     <member kind="function">
       <type>void</type>
       <name>stp_describe_resolution</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga88715b31fcec18778f769ffbc1b55384</anchor>
-      <arglist>(const stp_vars_t *v, int *x, int *y)</arglist>
+      <anchor>gac6b8f6ed18e86ced80c2394867514d94</anchor>
+      <arglist>(const stp_vars_t *v, stp_resolution_t *x, stp_resolution_t *y)</arglist>
     </member>
     <member kind="function">
       <type>int</type>
@@ -5000,6 +5219,13 @@
       <arglist>(const char *textval)</arglist>
     </member>
     <member kind="function">
+      <type>stp_dimension_t</type>
+      <name>stp_xmlstrtodim</name>
+      <anchorfile>xml_8h.html</anchorfile>
+      <anchor>ac54058829dfbc72b3c5d5a5885f2f55c</anchor>
+      <arglist>(const char *textval)</arglist>
+    </member>
+    <member kind="function">
       <type>stp_raw_t *</type>
       <name>stp_xmlstrtoraw</name>
       <anchorfile>xml_8h.html</anchorfile>
@@ -5145,6 +5371,48 @@
       <anchorfile>xml_8h.html</anchorfile>
       <anchor>ac3ebefda15f3996388895a4408c3b030</anchor>
       <arglist>(const char *name)</arglist>
+    </member>
+    <member kind="function">
+      <type>stp_mxml_node_t *</type>
+      <name>stp_xml_parse_file_from_path</name>
+      <anchorfile>xml_8h.html</anchorfile>
+      <anchor>a28d1b4f184cece4caaf366afe541e154</anchor>
+      <arglist>(const char *name, const char *topnodename, const char *path)</arglist>
+    </member>
+    <member kind="function">
+      <type>stp_mxml_node_t *</type>
+      <name>stp_xml_parse_file_from_path_uncached</name>
+      <anchorfile>xml_8h.html</anchorfile>
+      <anchor>af904bc30d092d1f18551d534bd409959</anchor>
+      <arglist>(const char *name, const char *topnodename, const char *path)</arglist>
+    </member>
+    <member kind="function">
+      <type>stp_mxml_node_t *</type>
+      <name>stp_xml_parse_file_from_path_safe</name>
+      <anchorfile>xml_8h.html</anchorfile>
+      <anchor>ac61ac4836ad44afefeb548ee14e47dde</anchor>
+      <arglist>(const char *name, const char *topnodename, const char *path)</arglist>
+    </member>
+    <member kind="function">
+      <type>stp_mxml_node_t *</type>
+      <name>stp_xml_parse_file_from_path_uncached_safe</name>
+      <anchorfile>xml_8h.html</anchorfile>
+      <anchor>a5d4b1789075299e5cf7e33173458391f</anchor>
+      <arglist>(const char *name, const char *topnodename, const char *path)</arglist>
+    </member>
+    <member kind="function">
+      <type>void</type>
+      <name>stp_xml_free_parsed_file</name>
+      <anchorfile>xml_8h.html</anchorfile>
+      <anchor>a335375d2b62a5f20cf6a6023838c5401</anchor>
+      <arglist>(stp_mxml_node_t *node)</arglist>
+    </member>
+    <member kind="function">
+      <type>void</type>
+      <name>stpi_print_xml_node</name>
+      <anchorfile>xml_8h.html</anchorfile>
+      <anchor>a970dfad7a5d100449ba8c411cd2a2a30</anchor>
+      <arglist>(stp_mxml_node_t *node)</arglist>
     </member>
   </compound>
   <compound kind="struct">
@@ -5364,6 +5632,24 @@
     </member>
   </compound>
   <compound kind="struct">
+    <name>stp_dimension_bound_t</name>
+    <filename>structstp__dimension__bound__t.html</filename>
+    <member kind="variable">
+      <type>stp_dimension_t</type>
+      <name>lower</name>
+      <anchorfile>structstp__dimension__bound__t.html</anchorfile>
+      <anchor>a56f141ca916da32f7da78947451e5718</anchor>
+      <arglist></arglist>
+    </member>
+    <member kind="variable">
+      <type>stp_dimension_t</type>
+      <name>upper</name>
+      <anchorfile>structstp__dimension__bound__t.html</anchorfile>
+      <anchor>aaf9d591f6adef97e576eff93ed62e151</anchor>
+      <arglist></arglist>
+    </member>
+  </compound>
+  <compound kind="struct">
     <name>stp_dither_matrix_generic</name>
     <filename>structstp__dither__matrix__generic.html</filename>
     <member kind="variable">
@@ -5513,24 +5799,6 @@
       <name>upper</name>
       <anchorfile>structstp__double__bound__t.html</anchorfile>
       <anchor>a07d734f8f82f059460cee55927b0216c</anchor>
-      <arglist></arglist>
-    </member>
-  </compound>
-  <compound kind="struct">
-    <name>stp_family</name>
-    <filename>structstp__family.html</filename>
-    <member kind="variable">
-      <type>const stp_printfuncs_t *</type>
-      <name>printfuncs</name>
-      <anchorfile>structstp__family.html</anchorfile>
-      <anchor>ad29f00ba3565e93c138b00e4a48cde77</anchor>
-      <arglist></arglist>
-    </member>
-    <member kind="variable">
-      <type>stp_list_t *</type>
-      <name>printer_list</name>
-      <anchorfile>structstp__family.html</anchorfile>
-      <anchor>a6e4f0c216f5ced14a819fbacdb26547d</anchor>
       <arglist></arglist>
     </member>
   </compound>
@@ -5944,66 +6212,66 @@
     <name>stp_papersize_t</name>
     <filename>structstp__papersize__t.html</filename>
     <member kind="variable">
-      <type>char *</type>
+      <type>const char *</type>
       <name>name</name>
       <anchorfile>structstp__papersize__t.html</anchorfile>
-      <anchor>a660431e579bf100782f7164b45597982</anchor>
+      <anchor>a99844043a9279c8c30abd2fed41343f0</anchor>
       <arglist></arglist>
     </member>
     <member kind="variable">
-      <type>char *</type>
+      <type>const char *</type>
       <name>text</name>
       <anchorfile>structstp__papersize__t.html</anchorfile>
-      <anchor>a26e8b5d0ce282614f128dd9d4aeaf9f6</anchor>
+      <anchor>acb3750b4b293280e3d66dd26b104c5c4</anchor>
       <arglist></arglist>
     </member>
     <member kind="variable">
-      <type>char *</type>
+      <type>const char *</type>
       <name>comment</name>
       <anchorfile>structstp__papersize__t.html</anchorfile>
-      <anchor>a5cdc973122b8cc2e612d2dee306cbf1d</anchor>
+      <anchor>a7943398dd2a0b2d788f62eb4a77efbd4</anchor>
       <arglist></arglist>
     </member>
     <member kind="variable">
-      <type>unsigned</type>
+      <type>stp_dimension_t</type>
       <name>width</name>
       <anchorfile>structstp__papersize__t.html</anchorfile>
-      <anchor>aedcca3776ddeb5ed815df3aa112147dd</anchor>
+      <anchor>a8573bbe8f5e454ab7f2849e9bbe60263</anchor>
       <arglist></arglist>
     </member>
     <member kind="variable">
-      <type>unsigned</type>
+      <type>stp_dimension_t</type>
       <name>height</name>
       <anchorfile>structstp__papersize__t.html</anchorfile>
-      <anchor>a040d59e39abdef9b12c929734fb7a08c</anchor>
+      <anchor>a7b628cb91182af4b43280bdf99399bbd</anchor>
       <arglist></arglist>
     </member>
     <member kind="variable">
-      <type>unsigned</type>
+      <type>stp_dimension_t</type>
       <name>top</name>
       <anchorfile>structstp__papersize__t.html</anchorfile>
-      <anchor>a7fc8acdb1d905d6ca4a0b9b247a6c48e</anchor>
+      <anchor>ac34a88a073f89f1550a4d2fd8ae2d5e5</anchor>
       <arglist></arglist>
     </member>
     <member kind="variable">
-      <type>unsigned</type>
+      <type>stp_dimension_t</type>
       <name>left</name>
       <anchorfile>structstp__papersize__t.html</anchorfile>
-      <anchor>a9ceb7ef01ea56c990eddbef4140b34a0</anchor>
+      <anchor>a8a3b8ed8eebf1833e892d80c1623d713</anchor>
       <arglist></arglist>
     </member>
     <member kind="variable">
-      <type>unsigned</type>
+      <type>stp_dimension_t</type>
       <name>bottom</name>
       <anchorfile>structstp__papersize__t.html</anchorfile>
-      <anchor>a9c7fcf4d0bac23817b6f56996fed4043</anchor>
+      <anchor>a8c27265091a8a83e63fc9548cd05f243</anchor>
       <arglist></arglist>
     </member>
     <member kind="variable">
-      <type>unsigned</type>
+      <type>stp_dimension_t</type>
       <name>right</name>
       <anchorfile>structstp__papersize__t.html</anchorfile>
-      <anchor>a6899599f2f940e95e03545ff71e2b4c5</anchor>
+      <anchor>ab60c8c27b1c83b55d42d9b573428462a</anchor>
       <arglist></arglist>
     </member>
     <member kind="variable">
@@ -6148,10 +6416,10 @@
       <arglist></arglist>
     </member>
     <member kind="variable">
-      <type>stp_int_bound_t</type>
+      <type>stp_dimension_bound_t</type>
       <name>dimension</name>
       <anchorfile>structstp__parameter__t.html</anchorfile>
-      <anchor>a29505a2b48cd755e10cedf01f3683d61</anchor>
+      <anchor>a5169a4eb2b5aa6ec49520f49e947ee96</anchor>
       <arglist></arglist>
     </member>
     <member kind="variable">
@@ -6183,10 +6451,10 @@
       <arglist></arglist>
     </member>
     <member kind="variable">
-      <type>int</type>
+      <type>stp_dimension_t</type>
       <name>dimension</name>
       <anchorfile>structstp__parameter__t.html</anchorfile>
-      <anchor>a5d8633772783bb1c66ffa66d7f720a9d</anchor>
+      <anchor>a603f013fcf8b9372ecf4c966bc8e3cb8</anchor>
       <arglist></arglist>
     </member>
     <member kind="variable">
@@ -6262,101 +6530,6 @@
       <anchorfile>structstp__pass__t.html</anchorfile>
       <anchor>aa4a3363d8de9121ba3d8bf28076b1c89</anchor>
       <arglist></arglist>
-    </member>
-  </compound>
-  <compound kind="struct">
-    <name>stp_printfuncs_t</name>
-    <filename>structstp__printfuncs__t.html</filename>
-    <member kind="variable">
-      <type>stp_parameter_list_t(*</type>
-      <name>list_parameters</name>
-      <anchorfile>structstp__printfuncs__t.html</anchorfile>
-      <anchor>a438c4f0f156d342498c82c2191151580</anchor>
-      <arglist>)(const stp_vars_t *v)</arglist>
-    </member>
-    <member kind="variable">
-      <type>void(*</type>
-      <name>parameters</name>
-      <anchorfile>structstp__printfuncs__t.html</anchorfile>
-      <anchor>aea6987aa2d9be3e580a6beabed9a34ee</anchor>
-      <arglist>)(const stp_vars_t *v, const char *name, stp_parameter_t *)</arglist>
-    </member>
-    <member kind="variable">
-      <type>void(*</type>
-      <name>media_size</name>
-      <anchorfile>structstp__printfuncs__t.html</anchorfile>
-      <anchor>a2b9b78f7a2887084932cf7b396d0b3d3</anchor>
-      <arglist>)(const stp_vars_t *v, int *width, int *height)</arglist>
-    </member>
-    <member kind="variable">
-      <type>void(*</type>
-      <name>imageable_area</name>
-      <anchorfile>structstp__printfuncs__t.html</anchorfile>
-      <anchor>a4f791449ab8b2e77797792fcaf40eeba</anchor>
-      <arglist>)(const stp_vars_t *v, int *left, int *right, int *bottom, int *top)</arglist>
-    </member>
-    <member kind="variable">
-      <type>void(*</type>
-      <name>maximum_imageable_area</name>
-      <anchorfile>structstp__printfuncs__t.html</anchorfile>
-      <anchor>aa8b3762f64a7eaed0dd2d41bb5f10bb1</anchor>
-      <arglist>)(const stp_vars_t *v, int *left, int *right, int *bottom, int *top)</arglist>
-    </member>
-    <member kind="variable">
-      <type>void(*</type>
-      <name>limit</name>
-      <anchorfile>structstp__printfuncs__t.html</anchorfile>
-      <anchor>a55aff48ac6f943c37fae2c9c4649576a</anchor>
-      <arglist>)(const stp_vars_t *v, int *max_width, int *max_height, int *min_width, int *min_height)</arglist>
-    </member>
-    <member kind="variable">
-      <type>int(*</type>
-      <name>print</name>
-      <anchorfile>structstp__printfuncs__t.html</anchorfile>
-      <anchor>ab589c4683082cfa13a51e112b2a77596</anchor>
-      <arglist>)(const stp_vars_t *v, stp_image_t *image)</arglist>
-    </member>
-    <member kind="variable">
-      <type>void(*</type>
-      <name>describe_resolution</name>
-      <anchorfile>structstp__printfuncs__t.html</anchorfile>
-      <anchor>a8bc0711182aa988a2d5c53ec97714da7</anchor>
-      <arglist>)(const stp_vars_t *v, int *x, int *y)</arglist>
-    </member>
-    <member kind="variable">
-      <type>const char *(*</type>
-      <name>describe_output</name>
-      <anchorfile>structstp__printfuncs__t.html</anchorfile>
-      <anchor>aeda58f4d08ee6a2ff380b3a7e7d7288a</anchor>
-      <arglist>)(const stp_vars_t *v)</arglist>
-    </member>
-    <member kind="variable">
-      <type>int(*</type>
-      <name>verify</name>
-      <anchorfile>structstp__printfuncs__t.html</anchorfile>
-      <anchor>ab495bc2ed8581a8411ac421739e8728f</anchor>
-      <arglist>)(stp_vars_t *v)</arglist>
-    </member>
-    <member kind="variable">
-      <type>int(*</type>
-      <name>start_job</name>
-      <anchorfile>structstp__printfuncs__t.html</anchorfile>
-      <anchor>acd27dd833347b4f3b56bbe4542e0671e</anchor>
-      <arglist>)(const stp_vars_t *v, stp_image_t *image)</arglist>
-    </member>
-    <member kind="variable">
-      <type>int(*</type>
-      <name>end_job</name>
-      <anchorfile>structstp__printfuncs__t.html</anchorfile>
-      <anchor>acebe74ffb46376e268b077aebe2c2550</anchor>
-      <arglist>)(const stp_vars_t *v, stp_image_t *image)</arglist>
-    </member>
-    <member kind="variable">
-      <type>stp_string_list_t *(*</type>
-      <name>get_external_options</name>
-      <anchorfile>structstp__printfuncs__t.html</anchorfile>
-      <anchor>a6ea914a1153a64fc43acb07fdea40f95</anchor>
-      <arglist>)(const stp_vars_t *v)</arglist>
     </member>
   </compound>
   <compound kind="struct">
@@ -6542,6 +6715,41 @@
       <anchorfile>group__array.html</anchorfile>
       <anchor>gae05ba5cfe8c03e2435348d6c5488d87e</anchor>
       <arglist>(const stp_array_t *array)</arglist>
+    </member>
+    <member kind="function">
+      <type>int</type>
+      <name>stp_array_write</name>
+      <anchorfile>group__array.html</anchorfile>
+      <anchor>ga6a53d58a43d00689899b024614bac1eb</anchor>
+      <arglist>(FILE *file, const stp_array_t *array)</arglist>
+    </member>
+    <member kind="function">
+      <type>char *</type>
+      <name>stp_array_write_string</name>
+      <anchorfile>group__array.html</anchorfile>
+      <anchor>ga1e2262c54ced078e6e5e38113aeeddf5</anchor>
+      <arglist>(const stp_array_t *array)</arglist>
+    </member>
+    <member kind="function">
+      <type>stp_array_t *</type>
+      <name>stp_array_create_from_stream</name>
+      <anchorfile>group__array.html</anchorfile>
+      <anchor>ga497c7ee10ce8d0f90a7289d4f81688ce</anchor>
+      <arglist>(FILE *fp)</arglist>
+    </member>
+    <member kind="function">
+      <type>stp_array_t *</type>
+      <name>stp_array_create_from_file</name>
+      <anchorfile>group__array.html</anchorfile>
+      <anchor>gaf481883d42f37cba19a2d7463b29ac7b</anchor>
+      <arglist>(const char *file)</arglist>
+    </member>
+    <member kind="function">
+      <type>stp_array_t *</type>
+      <name>stp_array_create_from_string</name>
+      <anchorfile>group__array.html</anchorfile>
+      <anchor>gaeb16e8b11cb35960bbacb5131bf15f43</anchor>
+      <arglist>(const char *string)</arglist>
     </member>
   </compound>
   <compound kind="group">
@@ -7662,73 +7870,30 @@
       <anchor>gga31255c4eebfaaf5cd319e5638a6a3069a660290248a563e7590202afd3ba68fb4</anchor>
       <arglist></arglist>
     </member>
-    <member kind="enumvalue">
-      <name>PAPERSIZE_TYPE_SPECIAL</name>
-      <anchorfile>group__papersize.html</anchorfile>
-      <anchor>gga31255c4eebfaaf5cd319e5638a6a3069a7f5ebb4b034dda5137ff6296d9dc67ac</anchor>
-      <arglist></arglist>
-    </member>
-    <member kind="function">
-      <type>int</type>
-      <name>stp_known_papersizes</name>
-      <anchorfile>group__papersize.html</anchorfile>
-      <anchor>ga84fd0bad33b134217f54fa8c1e6c8b99</anchor>
-      <arglist>(void)</arglist>
-    </member>
     <member kind="function">
       <type>const stp_papersize_t *</type>
-      <name>stp_get_papersize_by_name</name>
+      <name>stp_describe_papersize</name>
       <anchorfile>group__papersize.html</anchorfile>
-      <anchor>ga60f3dee8f26cac05d8d6fcaff1e39630</anchor>
-      <arglist>(const char *name)</arglist>
-    </member>
-    <member kind="function">
-      <type>const stp_papersize_t *</type>
-      <name>stp_get_papersize_by_size</name>
-      <anchorfile>group__papersize.html</anchorfile>
-      <anchor>ga1484a5e75a2b2921bbe0c9e17deb0b77</anchor>
-      <arglist>(int length, int width)</arglist>
-    </member>
-    <member kind="function">
-      <type>const stp_papersize_t *</type>
-      <name>stp_get_papersize_by_size_exact</name>
-      <anchorfile>group__papersize.html</anchorfile>
-      <anchor>ga879cd515ca2eb5fd8cd76ae62f4bfa4e</anchor>
-      <arglist>(int length, int width)</arglist>
-    </member>
-    <member kind="function">
-      <type>const stp_papersize_t *</type>
-      <name>stp_get_papersize_by_index</name>
-      <anchorfile>group__papersize.html</anchorfile>
-      <anchor>gab2e9f694a3b90aeaaa14d6af3b5fe75a</anchor>
-      <arglist>(int idx)</arglist>
+      <anchor>gaa1030bc16945705116695eedf09ecd17</anchor>
+      <arglist>(const stp_vars_t *v, const char *name)</arglist>
     </member>
     <member kind="function">
       <type>void</type>
       <name>stp_default_media_size</name>
       <anchorfile>group__papersize.html</anchorfile>
-      <anchor>ga33c0be56646361b1ce85a9d338336dd3</anchor>
-      <arglist>(const stp_vars_t *v, int *width, int *height)</arglist>
+      <anchor>gaa6e3d956dcc13c8aa2e489164aacf442</anchor>
+      <arglist>(const stp_vars_t *v, stp_dimension_t *width, stp_dimension_t *height)</arglist>
     </member>
   </compound>
   <compound kind="group">
     <name>printer</name>
     <title>printer</title>
     <filename>group__printer.html</filename>
-    <class kind="struct">stp_printfuncs_t</class>
-    <class kind="struct">stp_family</class>
     <member kind="typedef">
       <type>struct stp_printer</type>
       <name>stp_printer_t</name>
       <anchorfile>group__printer.html</anchorfile>
       <anchor>gacddc2ce7fa4e0a68fcc30c123503738f</anchor>
-      <arglist></arglist>
-    </member>
-    <member kind="typedef">
-      <type>struct stp_family</type>
-      <name>stp_family_t</name>
-      <anchorfile>group__printer.html</anchorfile>
-      <anchor>ga66a5e7cf2b1743a46bd78cb851e1d0a4</anchor>
       <arglist></arglist>
     </member>
     <member kind="function">
@@ -7765,13 +7930,6 @@
       <anchorfile>group__printer.html</anchorfile>
       <anchor>gadce65b83e3dd0ffcb75591ed3ba81155</anchor>
       <arglist>(const char *device_id)</arglist>
-    </member>
-    <member kind="function">
-      <type>const stp_printer_t *</type>
-      <name>stp_get_printer_by_foomatic_id</name>
-      <anchorfile>group__printer.html</anchorfile>
-      <anchor>gacd449b7863a5fcddb6bdb602079448f8</anchor>
-      <arglist>(const char *foomatic_id)</arglist>
     </member>
     <member kind="function">
       <type>const stp_printer_t *</type>
@@ -7820,13 +7978,6 @@
       <name>stp_printer_get_manufacturer</name>
       <anchorfile>group__printer.html</anchorfile>
       <anchor>gab99dd05c42aed848d1567f2b346fb4f4</anchor>
-      <arglist>(const stp_printer_t *p)</arglist>
-    </member>
-    <member kind="function">
-      <type>const char *</type>
-      <name>stp_printer_get_foomatic_id</name>
-      <anchorfile>group__printer.html</anchorfile>
-      <anchor>gaac52d241cc86a10965046afc0a8c8a41</anchor>
       <arglist>(const stp_printer_t *p)</arglist>
     </member>
     <member kind="function">
@@ -7905,20 +8056,6 @@
       <anchorfile>group__printer.html</anchorfile>
       <anchor>ga5b5cb603c9432c03ea459b57a2039bdc</anchor>
       <arglist>(stp_vars_t *v)</arglist>
-    </member>
-    <member kind="function">
-      <type>int</type>
-      <name>stp_family_register</name>
-      <anchorfile>group__printer.html</anchorfile>
-      <anchor>ga1c6d389f49a185ca24546107bd6f4993</anchor>
-      <arglist>(stp_list_t *family)</arglist>
-    </member>
-    <member kind="function">
-      <type>int</type>
-      <name>stp_family_unregister</name>
-      <anchorfile>group__printer.html</anchorfile>
-      <anchor>ga67e5c18254f7ad0b0fd77b4cc2265405</anchor>
-      <arglist>(stp_list_t *family)</arglist>
     </member>
     <member kind="function">
       <type>void</type>
@@ -8352,6 +8489,27 @@
     </member>
     <member kind="define">
       <type>#define</type>
+      <name>STP_DBG_ESCP2_XML</name>
+      <anchorfile>group__util.html</anchorfile>
+      <anchor>gaec840296af0019717a124a0729a350c3</anchor>
+      <arglist></arglist>
+    </member>
+    <member kind="define">
+      <type>#define</type>
+      <name>STP_DBG_ARRAY_ERRORS</name>
+      <anchorfile>group__util.html</anchorfile>
+      <anchor>ga03a21a25505fda88899be490974d0bec</anchor>
+      <arglist></arglist>
+    </member>
+    <member kind="define">
+      <type>#define</type>
+      <name>STP_DBG_STATIC_TIME</name>
+      <anchorfile>group__util.html</anchorfile>
+      <anchor>ga276a7ec27323b944bea0d53f2cecae1b</anchor>
+      <arglist></arglist>
+    </member>
+    <member kind="define">
+      <type>#define</type>
       <name>STP_SAFE_FREE</name>
       <anchorfile>group__util.html</anchorfile>
       <anchor>gaa5a86efbbd3e2eb391718d82a1d7ffcc</anchor>
@@ -8362,6 +8520,62 @@
       <name>stp_init</name>
       <anchorfile>group__util.html</anchorfile>
       <anchor>ga2ce0a2e8887fe5ff7f3eed1370d0d691</anchor>
+      <arglist>(void)</arglist>
+    </member>
+    <member kind="function">
+      <type>void</type>
+      <name>stp_set_global_errfunc</name>
+      <anchorfile>group__util.html</anchorfile>
+      <anchor>ga7c23e26a884648478dc2100d7d783e51</anchor>
+      <arglist>(stp_outfunc_t val)</arglist>
+    </member>
+    <member kind="function">
+      <type>stp_outfunc_t</type>
+      <name>stp_get_global_errfunc</name>
+      <anchorfile>group__util.html</anchorfile>
+      <anchor>ga933c7d15ae9304f18a7be077310d837d</anchor>
+      <arglist>(void)</arglist>
+    </member>
+    <member kind="function">
+      <type>void</type>
+      <name>stp_set_global_dbgfunc</name>
+      <anchorfile>group__util.html</anchorfile>
+      <anchor>ga62919e5752f68e29bbde0d52c7acba16</anchor>
+      <arglist>(stp_outfunc_t val)</arglist>
+    </member>
+    <member kind="function">
+      <type>stp_outfunc_t</type>
+      <name>stp_get_global_dbgfunc</name>
+      <anchorfile>group__util.html</anchorfile>
+      <anchor>ga035d55e39a1cd5f26fef7fbef867127e</anchor>
+      <arglist>(void)</arglist>
+    </member>
+    <member kind="function">
+      <type>void</type>
+      <name>stp_set_global_errdata</name>
+      <anchorfile>group__util.html</anchorfile>
+      <anchor>gaa2fc8c592c560caf6dcf4f86b62d76c4</anchor>
+      <arglist>(void *val)</arglist>
+    </member>
+    <member kind="function">
+      <type>void *</type>
+      <name>stp_get_global_errdata</name>
+      <anchorfile>group__util.html</anchorfile>
+      <anchor>ga022fb7959595871a61323b7778a9c107</anchor>
+      <arglist>(void)</arglist>
+    </member>
+    <member kind="function">
+      <type>void</type>
+      <name>stp_set_global_dbgdata</name>
+      <anchorfile>group__util.html</anchorfile>
+      <anchor>gafbbfe706e64b848d779e448370d0c574</anchor>
+      <arglist>(void *val)</arglist>
+    </member>
+    <member kind="function">
+      <type>void *</type>
+      <name>stp_get_global_dbgdata</name>
+      <anchorfile>group__util.html</anchorfile>
+      <anchor>ga0b34dbe6fa1029df485b165064b64f85</anchor>
       <arglist>(void)</arglist>
     </member>
     <member kind="function">
@@ -8610,6 +8824,7 @@
     <class kind="struct">stp_raw_t</class>
     <class kind="struct">stp_double_bound_t</class>
     <class kind="struct">stp_int_bound_t</class>
+    <class kind="struct">stp_dimension_bound_t</class>
     <class kind="struct">stp_parameter_t</class>
     <member kind="define">
       <type>#define</type>
@@ -8891,6 +9106,13 @@
       <arglist></arglist>
     </member>
     <member kind="function">
+      <type>void</type>
+      <name>stp_vars_print_error</name>
+      <anchorfile>group__vars.html</anchorfile>
+      <anchor>ga05413d52295467beedf9218e70c7bc36</anchor>
+      <arglist>(const stp_vars_t *v, const char *prefix)</arglist>
+    </member>
+    <member kind="function">
       <type>stp_vars_t *</type>
       <name>stp_vars_create</name>
       <anchorfile>group__vars.html</anchorfile>
@@ -8964,84 +9186,84 @@
       <type>void</type>
       <name>stp_set_left</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga3b0cc83e87247854ecafd46a6e446bcb</anchor>
-      <arglist>(stp_vars_t *v, int val)</arglist>
+      <anchor>ga43723e71ac3d128cb60f3a8647da2bda</anchor>
+      <arglist>(stp_vars_t *v, stp_dimension_t val)</arglist>
     </member>
     <member kind="function">
-      <type>int</type>
+      <type>stp_dimension_t</type>
       <name>stp_get_left</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga5c02ee2422d86e4bcdcae613c70c9e1e</anchor>
+      <anchor>ga552aff414bcb0d0e47bcecbbae151200</anchor>
       <arglist>(const stp_vars_t *v)</arglist>
     </member>
     <member kind="function">
       <type>void</type>
       <name>stp_set_top</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga557b5ad44d3b1da8392496681624ad8b</anchor>
-      <arglist>(stp_vars_t *v, int val)</arglist>
+      <anchor>ga0097b9757c0145621bd734404e165310</anchor>
+      <arglist>(stp_vars_t *v, stp_dimension_t val)</arglist>
     </member>
     <member kind="function">
-      <type>int</type>
+      <type>stp_dimension_t</type>
       <name>stp_get_top</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga292132b97b20a6d034e22f4146d36131</anchor>
+      <anchor>ga78161d3b7f6da93d4ca69a43c72a6026</anchor>
       <arglist>(const stp_vars_t *v)</arglist>
     </member>
     <member kind="function">
       <type>void</type>
       <name>stp_set_width</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga3a852ce7e42d7f8e0cef6c7d399e0491</anchor>
-      <arglist>(stp_vars_t *v, int val)</arglist>
+      <anchor>ga7d9fe91d4061a278fb81407c108051c2</anchor>
+      <arglist>(stp_vars_t *v, stp_dimension_t val)</arglist>
     </member>
     <member kind="function">
-      <type>int</type>
+      <type>stp_dimension_t</type>
       <name>stp_get_width</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga1c54d99b94c69a67eb4ae0349a4720e7</anchor>
+      <anchor>ga5ea05bffa12b1b9ab4d00967b4b15985</anchor>
       <arglist>(const stp_vars_t *v)</arglist>
     </member>
     <member kind="function">
       <type>void</type>
       <name>stp_set_height</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga8ce73c5efa41f005936d5f84c44c6667</anchor>
-      <arglist>(stp_vars_t *v, int val)</arglist>
+      <anchor>ga33dbc18695131be971381f3193e3d6e3</anchor>
+      <arglist>(stp_vars_t *v, stp_dimension_t val)</arglist>
     </member>
     <member kind="function">
-      <type>int</type>
+      <type>stp_dimension_t</type>
       <name>stp_get_height</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga8731a92f5d3047e00ba33577821d5aec</anchor>
+      <anchor>gaa8bdf68b63b9803f0beabd8575c16e9c</anchor>
       <arglist>(const stp_vars_t *v)</arglist>
     </member>
     <member kind="function">
       <type>void</type>
       <name>stp_set_page_width</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga639be0da07c3e5b7dc6d68ac2aa999e9</anchor>
-      <arglist>(stp_vars_t *v, int val)</arglist>
+      <anchor>gad3c936e04f59788bddd4d35152d31b75</anchor>
+      <arglist>(stp_vars_t *v, stp_dimension_t val)</arglist>
     </member>
     <member kind="function">
-      <type>int</type>
+      <type>stp_dimension_t</type>
       <name>stp_get_page_width</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>gaad2d305eed993707d22263b54578a39b</anchor>
+      <anchor>ga23866dae33987db3dc68c664d4efcb1d</anchor>
       <arglist>(const stp_vars_t *v)</arglist>
     </member>
     <member kind="function">
       <type>void</type>
       <name>stp_set_page_height</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga83326bacb8b92149af1b70457b23bc8f</anchor>
-      <arglist>(stp_vars_t *v, int val)</arglist>
+      <anchor>gab3700a20712230a9a79046d81dcc758d</anchor>
+      <arglist>(stp_vars_t *v, stp_dimension_t val)</arglist>
     </member>
     <member kind="function">
-      <type>int</type>
+      <type>stp_dimension_t</type>
       <name>stp_get_page_height</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>gac0c4928fa488bb95e73ba9b8aa932584</anchor>
+      <anchor>gaa3173c007ecc0d426e46dfd3c13075cf</anchor>
       <arglist>(const stp_vars_t *v)</arglist>
     </member>
     <member kind="function">
@@ -9074,6 +9296,20 @@
     </member>
     <member kind="function">
       <type>void</type>
+      <name>stp_set_dbgfunc</name>
+      <anchorfile>group__vars.html</anchorfile>
+      <anchor>ga86efc506f03b5a7481f35b2f7f9a7e79</anchor>
+      <arglist>(stp_vars_t *v, stp_outfunc_t val)</arglist>
+    </member>
+    <member kind="function">
+      <type>stp_outfunc_t</type>
+      <name>stp_get_dbgfunc</name>
+      <anchorfile>group__vars.html</anchorfile>
+      <anchor>ga9455648cb309cb4755923b5a3d20a4c4</anchor>
+      <arglist>(const stp_vars_t *v)</arglist>
+    </member>
+    <member kind="function">
+      <type>void</type>
       <name>stp_set_outdata</name>
       <anchorfile>group__vars.html</anchorfile>
       <anchor>gac2b3408200a9676e6c6063cc0ae2f4bd</anchor>
@@ -9098,6 +9334,20 @@
       <name>stp_get_errdata</name>
       <anchorfile>group__vars.html</anchorfile>
       <anchor>gad08bdcd721d37f52993c1862e25ebaf7</anchor>
+      <arglist>(const stp_vars_t *v)</arglist>
+    </member>
+    <member kind="function">
+      <type>void</type>
+      <name>stp_set_dbgdata</name>
+      <anchorfile>group__vars.html</anchorfile>
+      <anchor>ga681da4782790a614913221d0c4ec4a54</anchor>
+      <arglist>(stp_vars_t *v, void *val)</arglist>
+    </member>
+    <member kind="function">
+      <type>void *</type>
+      <name>stp_get_dbgdata</name>
+      <anchorfile>group__vars.html</anchorfile>
+      <anchor>gaa3c75772969cff226a7da34b7ec0d52e</anchor>
       <arglist>(const stp_vars_t *v)</arglist>
     </member>
     <member kind="function">
@@ -9244,8 +9494,8 @@
       <type>void</type>
       <name>stp_set_dimension_parameter</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga6ca7898c212230cdbdc70ada2efb1417</anchor>
-      <arglist>(stp_vars_t *v, const char *parameter, int value)</arglist>
+      <anchor>gae08f8a1ee0fc7dfc47bdfe13c9fd2c5a</anchor>
+      <arglist>(stp_vars_t *v, const char *parameter, stp_dimension_t value)</arglist>
     </member>
     <member kind="function">
       <type>void</type>
@@ -9328,8 +9578,8 @@
       <type>void</type>
       <name>stp_set_default_dimension_parameter</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>gab6f1820cadd75a4311bfc49b01de447b</anchor>
-      <arglist>(stp_vars_t *v, const char *parameter, int value)</arglist>
+      <anchor>ga472f76e75c57ab5c88e8055f467b8e50</anchor>
+      <arglist>(stp_vars_t *v, const char *parameter, stp_dimension_t value)</arglist>
     </member>
     <member kind="function">
       <type>void</type>
@@ -9388,10 +9638,10 @@
       <arglist>(const stp_vars_t *v, const char *parameter)</arglist>
     </member>
     <member kind="function">
-      <type>int</type>
+      <type>stp_dimension_t</type>
       <name>stp_get_dimension_parameter</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga3c8d1333086ca5a01a3439f94d9f94d3</anchor>
+      <anchor>gaf093cba0d9ae5b8ad88d6f4bc55522f2</anchor>
       <arglist>(const stp_vars_t *v, const char *parameter)</arglist>
     </member>
     <member kind="function">
@@ -9776,36 +10026,36 @@
       <type>void</type>
       <name>stp_get_media_size</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>gac9e6d740ffc4cff5dc7d0bf106a3e7df</anchor>
-      <arglist>(const stp_vars_t *v, int *width, int *height)</arglist>
+      <anchor>gaec582fdf4df9806b1a403d9bda45db71</anchor>
+      <arglist>(const stp_vars_t *v, stp_dimension_t *width, stp_dimension_t *height)</arglist>
     </member>
     <member kind="function">
       <type>void</type>
       <name>stp_get_imageable_area</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga67d1e68ed47e5b554f2021fca1f01978</anchor>
-      <arglist>(const stp_vars_t *v, int *left, int *right, int *bottom, int *top)</arglist>
+      <anchor>ga39789de068575617708d8178875cd707</anchor>
+      <arglist>(const stp_vars_t *v, stp_dimension_t *left, stp_dimension_t *right, stp_dimension_t *bottom, stp_dimension_t *top)</arglist>
     </member>
     <member kind="function">
       <type>void</type>
       <name>stp_get_maximum_imageable_area</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>gad17cadb7fd78bffb759f2213a1a90df6</anchor>
-      <arglist>(const stp_vars_t *v, int *left, int *right, int *bottom, int *top)</arglist>
+      <anchor>gaacd796aa1bc61acc395f9409d912df06</anchor>
+      <arglist>(const stp_vars_t *v, stp_dimension_t *left, stp_dimension_t *right, stp_dimension_t *bottom, stp_dimension_t *top)</arglist>
     </member>
     <member kind="function">
       <type>void</type>
       <name>stp_get_size_limit</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga0c8ee62453baff3d2c00e0ccae67b049</anchor>
-      <arglist>(const stp_vars_t *v, int *max_width, int *max_height, int *min_width, int *min_height)</arglist>
+      <anchor>gae0e7959db2151f1c705ee3962e9f5d9e</anchor>
+      <arglist>(const stp_vars_t *v, stp_dimension_t *max_width, stp_dimension_t *max_height, stp_dimension_t *min_width, stp_dimension_t *min_height)</arglist>
     </member>
     <member kind="function">
       <type>void</type>
       <name>stp_describe_resolution</name>
       <anchorfile>group__vars.html</anchorfile>
-      <anchor>ga88715b31fcec18778f769ffbc1b55384</anchor>
-      <arglist>(const stp_vars_t *v, int *x, int *y)</arglist>
+      <anchor>gac6b8f6ed18e86ced80c2394867514d94</anchor>
+      <arglist>(const stp_vars_t *v, stp_resolution_t *x, stp_resolution_t *y)</arglist>
     </member>
     <member kind="function">
       <type>int</type>

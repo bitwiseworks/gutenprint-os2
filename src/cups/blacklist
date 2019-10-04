@@ -75,6 +75,9 @@
 # Canon SELPHY CP810
 0x04a9 0x3256 blacklist
 
+# Canon SELPHY CP820
+0x04a9 0x327b blacklist
+
 # Canon SELPHY CP900
 0x04a9 0x3255 blacklist
 
@@ -87,6 +90,9 @@
 # Canon SELPHY CP1200
 0x04a9 0x32b1 blacklist
 
+# Canon SELPHY CP1300
+0x04a9 0x32db blacklist
+
 # Canon SELPHY ES1
 0x04a9 0x3141 blacklist
 
@@ -96,7 +102,7 @@
 # Canon SELPHY ES20
 0x04a9 0x3186 blacklist
 
-# Canon SELPHY ES3 
+# Canon SELPHY ES3
 0x04a9 0x31af blacklist
 
 # Canon SELPHY ES30
@@ -117,6 +123,18 @@
 # Kodak 6850
 0x040a 0x402b blacklist
 
+# Kodak 7000
+0x040a 0x4035 blacklist
+
+# Kodak 7010/7015
+0x040a 0x4037 blacklist
+
+# Kodak 8800/9810
+0x040a 0x4023 blacklist
+
+# Kodak 8810
+0x040a 0x404d blacklist
+
 # Kodak 605
 0x040a 0x402e blacklist
 
@@ -128,6 +146,9 @@
 
 # Shinko CHC-S2145 (aka Sinfonia S2)
 0x10ce 0x000e blacklist
+
+# Shinko CHC-S2245 (aka Sinfonia S3)
+0x10ce 0x0039 blacklist
 
 # Shinko CHC-S6145 (aka Sinfonia CS2)
 0x10ce 0x0019 blacklist
@@ -144,11 +165,20 @@
 # Sony UP-CR10L
 0x054c 0x0226 blacklist
 
+# Sony UP-D895
+0x054c 0x0049 blacklist
+
+# Sony UP-D897
+0x054c 0x01e7 blacklist
+
 # Mitsubishi CP-D70DW/CP-D707DW
 0x06d3 0x3b30 blacklist
 
 # Mitsubishi CP-D80DW
 0x06d3 0x3b36 blacklist
+
+# Mitsubishi CP-D90DW
+0x06d3 0x3b60 blacklist
 
 # Mitsubishi CP-K60DW-S
 0x06d3 0x3b31 blacklist
@@ -178,6 +208,9 @@
 # Mitsubishi CP-9810D/DW
 0x06d3 0x3b21 blacklist
 
+# Mitsubishi P93D
+0x06d3 0x0398 blacklist
+
 # Mitsubishi P95D
 0x06d3 0x3b10 blacklist
 
@@ -190,17 +223,19 @@
 # DNP DS80 + Citizen CX-W + Mitsubishi CP3800
 0x1343 0x0004 blacklist
 
-# DNP DS-RX1 + Citizen CY
+# DNP DS-RX1 + Citizen CY (Plus RX1HS and CY-02)
 0x1343 0x0005 blacklist
 
-# Citizen CW-02
+# Citizen CW-02 / OP900II
 0x1343 0x0006 blacklist
 
+# Citizen CX-02
+0x1343 0x000A blacklist
+
 # DNP DS80D
-0x1343 0x0007 blacklist
+0x1343 0x0008 blacklist
 
 # DNP DS620
-0x1343 0x0008 blacklist
 0x1452 0x8b01 blacklist
 
 # DNP DS820
@@ -208,3 +243,21 @@
 
 # CIAAT Brava 21
 0x10ce 0x001e blacklist
+
+# Fujifilm ASK-300
+0x04cb 0x5006 blacklist
+
+# HiTi M610
+0x0d16 0x0010 blacklist
+
+# HiTi P910L
+0x0d16 0x000e blacklist
+
+# Magicard Tango 2E
+0x0c1f 0x1800 blacklist
+
+# Magicard Enduro
+0x0c1f 0x4800 blacklist
+
+# Magicard Enduro+
+0x0c1f 0x880a blacklist

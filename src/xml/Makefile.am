@@ -11,8 +11,7 @@
 ## GNU General Public License for more details.
 ##
 ## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
-## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+## along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ## Process this file with automake to produce Makefile.in.
 
@@ -20,18 +19,22 @@
 
 include $(top_srcdir)/scripts/global.mk
 
-SUBDIRS = escp2
+SUBDIRS = 					\
+	dither					\
+	escp2					\
+	papers					\
+	printers
+
+STAMPS = 					\
+	dither/xml-stamp			\
+	escp2/xml-stamp				\
+	papers/xml-stamp			\
+	printers/xml-stamp
+
 
 ## Variables
 
 pkgxmldatadir = $(pkgdatadir)/@GUTENPRINT_MAJOR_VERSION@.@GUTENPRINT_MINOR_VERSION@/xml
-
-pkgxmldata_DATA =				\
-	dither-matrix-1x1.xml			\
-	dither-matrix-2x1.xml			\
-	dither-matrix-4x1.xml			\
-	papers.xml				\
-	printers.xml
 
 ## Rules
 
@@ -40,10 +43,12 @@ noinst_PROGRAMS = extract-strings
 extract_strings_SOURCES = extract-strings.c
 extract_strings_LDADD = $(GUTENPRINT_LIBS)
 
-xml-stamp: $(pkgxmldata_DATA) escp2/xml-stamp Makefile.am
+xml-stamp: $(pkgxmldata_DATA) $(STAMPS) Makefile.am
 	-rm -f $@ $@.tmp
 	touch $@.tmp
-	sed 's;^;escp2/;' escp2/xml-stamp >> $@.tmp
+	for dir in $(SUBDIRS) ; do \
+	  sed "s;^;$$dir/;" $${dir}/xml-stamp >> $@.tmp ; \
+	done
 	for f in $(pkgxmldata_DATA) ; do echo $$f >> $@.tmp; done
 	mv $@.tmp $@
 
@@ -63,6 +68,6 @@ dist-hook: xmli18n-tmp.h xml-stamp
 
 CLEANFILES = xmli18n-tmp.h xmli18n-tmp.h.tmp xml-stamp xml-stamp.tmp
 
-EXTRA_DIST = $(pkgxmldata_DATA)
+EXTRA_DIST = $(pkgxmldata_DATA) xmli18n-tmp.h
 
 MAINTAINERCLEANFILES = Makefile.in

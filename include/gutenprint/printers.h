@@ -15,8 +15,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 /**
@@ -31,6 +30,7 @@
 extern "C" {
 #endif
 
+#include <gutenprint/types.h>
 #include <gutenprint/string-list.h>
 #include <gutenprint/list.h>
 #include <gutenprint/vars.h>
@@ -89,14 +89,6 @@ extern const stp_printer_t *stp_get_printer_by_driver(const char *driver);
 extern const stp_printer_t *stp_get_printer_by_device_id(const char *device_id);
 
 /**
- * Get a printer model by its foomatic ID.
- * @param foomatic_id the printer model's foomatic ID
- * @returns a pointer to the printer model, or NULL on failure.  The
- * pointer should not be freed.
- */
-extern const stp_printer_t *stp_get_printer_by_foomatic_id(const char *foomatic_id);
-
-/**
  * Get the printer model from a vars object.
  * @param v the vars to use.
  * @returns a pointer to the printer model, or NULL on failure.  The
@@ -148,13 +140,6 @@ extern const char *stp_printer_get_family(const stp_printer_t *p);
  * @returns the manufacturer's name (should never be freed).
  */
 extern const char *stp_printer_get_manufacturer(const stp_printer_t *p);
-
-/**
- * Get a printer model's foomatic ID
- * @param p the printer model to use.
- * @returns the foomatic ID or NULL (should never be freed)
- */
-extern const char *stp_printer_get_foomatic_id(const stp_printer_t *p);
 
 /**
  * Get a printer model's comment string
@@ -239,39 +224,10 @@ extern int stp_end_job(const stp_vars_t *v, stp_image_t *image);
  */
 extern stp_string_list_t *stp_get_external_options(const stp_vars_t *v);
 
-typedef struct
-{
-  stp_parameter_list_t (*list_parameters)(const stp_vars_t *v);
-  void  (*parameters)(const stp_vars_t *v, const char *name,
-		      stp_parameter_t *);
-  void  (*media_size)(const stp_vars_t *v, int *width, int *height);
-  void  (*imageable_area)(const stp_vars_t *v,
-			  int *left, int *right, int *bottom, int *top);
-  void  (*maximum_imageable_area)(const stp_vars_t *v, int *left, int *right,
-				  int *bottom, int *top);
-  void  (*limit)(const stp_vars_t *v, int *max_width, int *max_height,
-                 int *min_width, int *min_height);
-  int   (*print)(const stp_vars_t *v, stp_image_t *image);
-  void  (*describe_resolution)(const stp_vars_t *v, int *x, int *y);
-  const char *(*describe_output)(const stp_vars_t *v);
-  int   (*verify)(stp_vars_t *v);
-  int   (*start_job)(const stp_vars_t *v, stp_image_t *image);
-  int   (*end_job)(const stp_vars_t *v, stp_image_t *image);
-  stp_string_list_t *(*get_external_options)(const stp_vars_t *v);
-} stp_printfuncs_t;
-
-typedef struct stp_family
-{
-  const stp_printfuncs_t *printfuncs;   /* printfuncs for the printer */
-  stp_list_t             *printer_list; /* list of printers */
-} stp_family_t;
-
 extern int stp_get_model_id(const stp_vars_t *v);
 
 extern int stp_verify_printer_params(stp_vars_t *v);
 
-extern int stp_family_register(stp_list_t *family);
-extern int stp_family_unregister(stp_list_t *family);
 extern void stp_initialize_printer_defaults(void);
 
 extern stp_parameter_list_t stp_printer_list_parameters(const stp_vars_t *v);

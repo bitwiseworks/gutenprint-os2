@@ -677,6 +677,13 @@
     <filename>typebuiltins_8h</filename>
     <member kind="define">
       <type>#define</type>
+      <name>STPUI_TYPE_CURVE_TYPE</name>
+      <anchorfile>typebuiltins_8h.html</anchorfile>
+      <anchor>af0561b03a3bfb203b40c37f9bb373ffb</anchor>
+      <arglist></arglist>
+    </member>
+    <member kind="define">
+      <type>#define</type>
       <name>STPUI_TYPE_ORIENT_T</name>
       <anchorfile>typebuiltins_8h.html</anchorfile>
       <anchor>a7c68a632b60b65d497e2933fa1b78a77</anchor>
@@ -689,18 +696,18 @@
       <anchor>ab213314f887b8b4f48f9aa1531673a9c</anchor>
       <arglist></arglist>
     </member>
-    <member kind="define">
-      <type>#define</type>
-      <name>STPUI_TYPE_CURVE_TYPE</name>
-      <anchorfile>typebuiltins_8h.html</anchorfile>
-      <anchor>af0561b03a3bfb203b40c37f9bb373ffb</anchor>
-      <arglist></arglist>
-    </member>
     <member kind="function">
       <type>G_BEGIN_DECLS GType</type>
+      <name>stpui_curve_type_get_type</name>
+      <anchorfile>typebuiltins_8h.html</anchorfile>
+      <anchor>aef1f0d56826459a752408499de480d94</anchor>
+      <arglist>(void)</arglist>
+    </member>
+    <member kind="function">
+      <type>GType</type>
       <name>orient_t_orient_t_get_type</name>
       <anchorfile>typebuiltins_8h.html</anchorfile>
-      <anchor>ab05fb37a6c79f2b6b417ff107d9bb881</anchor>
+      <anchor>a7f05d3e047ac9bf33155929de4d1f06b</anchor>
       <arglist>(void)</arglist>
     </member>
     <member kind="function">
@@ -708,13 +715,6 @@
       <name>command_t_command_t_get_type</name>
       <anchorfile>typebuiltins_8h.html</anchorfile>
       <anchor>a5e6b50173b88263be23734e76f4a39f2</anchor>
-      <arglist>(void)</arglist>
-    </member>
-    <member kind="function">
-      <type>GType</type>
-      <name>stpui_curve_type_get_type</name>
-      <anchorfile>typebuiltins_8h.html</anchorfile>
-      <anchor>a1252245c3967f9e655de3d62c3999230</anchor>
       <arglist>(void)</arglist>
     </member>
   </compound>

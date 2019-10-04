@@ -15,8 +15,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 %{
@@ -113,6 +112,7 @@ find_color(const char *name)
 %token HSIZE
 %token VSIZE
 %token BLACKLINE
+%token COLORLINE
 %token NOSCALE
 %token PATTERN
 %token XPATTERN
@@ -129,6 +129,7 @@ find_color(const char *name)
 %token WHITE
 %token MODE
 %token PAGESIZE
+%token ROUND
 %token MESSAGE
 %token OUTPUT
 %token START_JOB
@@ -229,6 +230,13 @@ modespec2: modespec1 tINT
 
 modespec: modespec1 | modespec2
 ;
+
+round: ROUND
+	{
+	  if (getenv("STP_TESTPATTERN_DEBUG"))
+	    fprintf(stderr, ">>>round\n");
+	  global_round_size = 1;
+	}
 
 inputspec: MODE modespec
 ;
@@ -450,6 +458,14 @@ blackline: BLACKLINE tINT
 	}
 ;
 
+colorline: COLORLINE tINT
+	{
+	  if (getenv("STP_TESTPATTERN_DEBUG"))
+	    fprintf(stderr, ">>>colorline %d\n", $2);
+	  global_colorline = ($2 != 0);
+	}
+;
+
 noscale: NOSCALE tINT
 	{
 	  if (getenv("STP_TESTPATTERN_DEBUG"))
@@ -625,7 +641,7 @@ end_job: END_JOB
 A_Rule: gamma | channel_gamma | level | channel_level | global_gamma | steps
 	| ink_limit | printer | parameter | density | top | left | hsize
 	| vsize | blackline | noscale | inputspec | page_size | message
-	| output | start_job | end_job | size_mode
+	| output | start_job | end_job | size_mode | round | colorline
 ;
 
 Rule: A_Rule SEMI

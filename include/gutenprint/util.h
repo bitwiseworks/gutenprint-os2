@@ -15,8 +15,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 /**
@@ -47,12 +46,69 @@ extern "C" {
 
 /**
  * Initialise libgimpprint.
- * This function must be called prior to any other use of the library.
+ * This function must be called prior to any other use of the library
+ * except as specifically noted.
  * It is responsible for loading modules and XML data and initialising
  * internal data structures.
  * @returns 0 on success, 1 on failure.
  */
 extern int stp_init(void);
+
+/**
+ * Set global error output function.  This may be called prior to
+ * stp_init().
+ * @param val function to perform error output.  Default is to write to stderr.
+ */
+extern void stp_set_global_errfunc(stp_outfunc_t val);
+
+/**
+ * Get global error output function.  This may be called prior to
+ * stp_init().
+ * @returns current global output function; null if default.
+ */
+extern stp_outfunc_t stp_get_global_errfunc(void);
+
+/**
+ * Set global debug output function.  This may be called prior to
+ * stp_init().
+ * @param val function to perform debug output.  Default is to write to stderr
+ */
+extern void stp_set_global_dbgfunc(stp_outfunc_t val);
+
+/**
+ * Get global debug output function.  This may be called prior to
+ * stp_init().
+ * @returns current global output function; null if default.
+ */
+extern stp_outfunc_t stp_get_global_dbgfunc(void);
+
+/**
+ * Set global error output data.  This may be called prior to
+ * stp_init().
+ * @param val data (e. g. FILE * or file descriptor) to perform error output.
+ */
+extern void stp_set_global_errdata(void * val);
+
+/**
+ * Get global error output data.  This may be called prior to
+ * stp_init().
+ * @returns current global output data; null if default.
+ */
+extern void * stp_get_global_errdata(void);
+
+/**
+ * Set global debug output data.  This may be called prior to
+ * stp_init().
+ * @param val data (e. g. FILE * or file descriptor) to perform debug output.
+ */
+extern void stp_set_global_dbgdata(void *val);
+
+/**
+ * Get global debug output data.  This may be called prior to
+ * stp_init().
+ * @returns current global output data; null if default.
+ */
+extern void * stp_get_global_dbgdata(void);
 
 /**
  * Set the output encoding.  This function sets the encoding that all
@@ -132,6 +188,9 @@ extern void stp_catprintf(char **strp, const char *format, ...)
 #define STP_DBG_NO_COMPRESSION	0x400000
 #define STP_DBG_ASSERTIONS	0x800000
 #define STP_DBG_DPL		0x1000000
+#define STP_DBG_ESCP2_XML	0x2000000
+#define STP_DBG_ARRAY_ERRORS	0x4000000
+#define STP_DBG_STATIC_TIME	0x8000000
 
 extern unsigned long stp_get_debug_level(void);
 extern void stp_dprintf(unsigned long level, const stp_vars_t *v,

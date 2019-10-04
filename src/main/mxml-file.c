@@ -61,7 +61,7 @@ static int		mxml_write_node(stp_mxml_node_t *node, void *p,
 					int (*putc_cb)(int, void *));
 static int		mxml_write_string(const char *s, void *p,
 					  int (*putc_cb)(int, void *));
-static int		mxml_write_ws(stp_mxml_node_t *node, void *p, 
+static int		mxml_write_ws(stp_mxml_node_t *node, void *p,
 			              int (*cb)(stp_mxml_node_t *, int), int ws,
 				      int col, int (*putc_cb)(int, void *));
 
@@ -429,6 +429,10 @@ mxml_load_data(stp_mxml_node_t *top,	/* I - Top node */
             node = stp_mxmlNewReal(parent, strtod(buffer, &bufptr));
 	    break;
 
+	case STP_MXML_DIMENSION :
+            node = stp_mxmlNewDimension(parent, strtod(buffer, &bufptr));
+	    break;
+
 	case STP_MXML_TEXT :
             node = stp_mxmlNewText(parent, whitespace, buffer);
 	    break;
@@ -436,7 +440,7 @@ mxml_load_data(stp_mxml_node_t *top,	/* I - Top node */
         default : /* Should never happen... */
 	    node = NULL;
 	    break;
-      }	  
+      }
 
       if (*bufptr)
       {
@@ -1139,7 +1143,7 @@ mxml_write_node(stp_mxml_node_t *node,	/* I - Node to write */
 	      return (-1);
             if ((*putc_cb)('\"', p) < 0)
 	      return (-1);
-	    
+
             col += strlen(attr->name) + strlen(attr->value) + 3;
 	  }
 
@@ -1242,6 +1246,7 @@ mxml_write_node(stp_mxml_node_t *node,	/* I - Node to write */
           break;
 
       case STP_MXML_REAL :
+      case STP_MXML_DIMENSION :
 	  if (node->prev)
 	  {
 	    if (col > STP_MXML_WRAP)

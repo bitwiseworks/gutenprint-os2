@@ -15,8 +15,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 /**
@@ -27,11 +26,12 @@
 #ifndef GUTENPRINT_PAPER_H
 #define GUTENPRINT_PAPER_H
 
+#include <gutenprint/types.h>
+#include <gutenprint/vars.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <gutenprint/vars.h>
 
 /**
  * The papersize describes the dimensions of a paper.
@@ -62,32 +62,30 @@ typedef enum
   /** Standard paper size */
   PAPERSIZE_TYPE_STANDARD = 0,
   /** Envelope */
-  PAPERSIZE_TYPE_ENVELOPE,
-  /** Special (not normally displayed) */
-  PAPERSIZE_TYPE_SPECIAL
+  PAPERSIZE_TYPE_ENVELOPE
 } stp_papersize_type_t;
 
 /** The papersize data type. */
 typedef struct
 {
   /** Short unique name (not translated). */
-  char *name;
+  const char *name;
   /** Long descriptive name (translated). */
-  char *text;
+  const char *text;
   /** Comment. */
-  char *comment;
+  const char *comment;
   /** Paper width. */
-  unsigned width;
+  stp_dimension_t width;
   /** Paper height. */
-  unsigned height;
+  stp_dimension_t height;
   /** Top margin. */
-  unsigned top;
+  stp_dimension_t top;
   /** Left margin. */
-  unsigned left;
+  stp_dimension_t left;
   /** Bottom margin. */
-  unsigned bottom;
+  stp_dimension_t bottom;
   /** Right margin. */
-  unsigned right;
+  stp_dimension_t right;
   /** Units of measurement. */
   stp_papersize_unit_t paper_unit;
   /** Paper size type. */
@@ -95,45 +93,13 @@ typedef struct
 } stp_papersize_t;
 
 /**
- * Get the number of available papersizes.
- * @returns the number of papersizes.
- */
-extern int stp_known_papersizes(void);
-
-/**
  * Get a papersize by name.
+ * @param v the Gutenprint vars object
  * @param name the short unique name of the paper.
  * @returns a static pointer to the papersize, or NULL on failure.
  */
-extern const stp_papersize_t *stp_get_papersize_by_name(const char *name);
-
-/**
- * Get a papersize by size.
- * The nearest available size to the size requested will be found.
- * Only paper sizes within 5 points of width and height will be considered.
- * @param length the length of the paper.
- * @param width the width of the paper
- * @returns a static pointer to the papersize, or NULL on failure.
- */
-extern const stp_papersize_t *stp_get_papersize_by_size(int length,
-							int width);
-
-/**
- * Get a papersize by size if an exact match is found.
- * @param length the length of the paper.
- * @param width the width of the paper
- * @returns a static pointer to the papersize, or NULL on failure.
- */
-extern const stp_papersize_t *stp_get_papersize_by_size_exact(int length,
-							      int width);
-
-/**
- * Get a papersize by its index number.
- * @param idx the index number.  This must not be greater than (total
- * number of papers - 1).
- * @returns a static pointer to the papersize, or NULL on failure.
- */
-extern const stp_papersize_t *stp_get_papersize_by_index(int idx);
+extern const stp_papersize_t *stp_describe_papersize(const stp_vars_t *v,
+						     const char *name);
 
 /**
  * Get the default paper dimensions for the current configuration.
@@ -145,7 +111,7 @@ extern const stp_papersize_t *stp_get_papersize_by_index(int idx);
  * @param height pointer to storage that the height will be returned in.
  */
 extern void stp_default_media_size(const stp_vars_t *v,
-				   int *width, int *height);
+				   stp_dimension_t *width, stp_dimension_t *height);
 
 /** @} */
 

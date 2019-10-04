@@ -16,8 +16,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 /*
@@ -31,6 +30,7 @@
 #include <gutenprint/gutenprint.h>
 #include "gutenprint-internal.h"
 #include <gutenprint/gutenprint-intl-internal.h>
+#include <stdint.h>
 #include <math.h>
 #ifdef HAVE_LIMITS_H
 #include <limits.h>
@@ -55,6 +55,15 @@ typedef struct stp_printvars
 static void stpi_printer_freefunc(void *item);
 static const char* stpi_printer_namefunc(const void *item);
 static const char* stpi_printer_long_namefunc(const void *item);
+
+/*
+ * IMPORTANT NOTE ABOUT PRINTER LIST IMPLEMENTATION:
+ * For testing purposes, at a minimum, the list of printers must be
+ * returned in deterministic order.  The Travis run splits up the list
+ * of printers by means of a rotor (each test job gets every Nth printer),
+ * so a given build must preserve ordering if we want to ensure that
+ * all printers are covered.
+ */
 
 static stp_list_t *printer_list = NULL;
 
@@ -197,13 +206,6 @@ stp_printer_get_manufacturer(const stp_printer_t *printer)
 }
 
 const char *
-stp_printer_get_foomatic_id(const stp_printer_t *printer)
-{
-  stp_erprintf("stp_printer_get_foomatic_id is DEPRECATED\n");
-  return NULL;
-}
-
-const char *
 stp_printer_get_comment(const stp_printer_t *printer)
 {
   return printer->comment;
@@ -275,13 +277,6 @@ stp_get_printer_by_device_id(const char *device_id)
 	return ((const stp_printer_t *) stp_list_item_get_data(printer_item));
       printer_item = stp_list_item_next(printer_item);
     }
-  return NULL;
-}
-
-const stp_printer_t *
-stp_get_printer_by_foomatic_id(const char *foomatic_id)
-{
-  stp_erprintf("stp_get_printer_by_foomatic_id is DEPRECATED\n");
   return NULL;
 }
 
@@ -452,7 +447,7 @@ stp_printer_get_defaults(const stp_printer_t *printer)
 }
 
 void
-stp_get_media_size(const stp_vars_t *v, int *width, int *height)
+stp_get_media_size(const stp_vars_t *v, stp_dimension_t *width, stp_dimension_t *height)
 {
   const stp_printfuncs_t *printfuncs =
     stpi_get_printfuncs(stp_get_printer(v));
@@ -461,7 +456,8 @@ stp_get_media_size(const stp_vars_t *v, int *width, int *height)
 
 void
 stp_get_imageable_area(const stp_vars_t *v,
-		       int *left, int *right, int *bottom, int *top)
+		       stp_dimension_t *left, stp_dimension_t *right,
+		       stp_dimension_t *bottom, stp_dimension_t *top)
 {
   const stp_printfuncs_t *printfuncs =
     stpi_get_printfuncs(stp_get_printer(v));
@@ -470,7 +466,8 @@ stp_get_imageable_area(const stp_vars_t *v,
 
 void
 stp_get_maximum_imageable_area(const stp_vars_t *v,
-			       int *left, int *right, int *bottom, int *top)
+			       stp_dimension_t *left, stp_dimension_t *right,
+			       stp_dimension_t *bottom, stp_dimension_t *top)
 {
   const stp_printfuncs_t *printfuncs =
     stpi_get_printfuncs(stp_get_printer(v));
@@ -478,8 +475,9 @@ stp_get_maximum_imageable_area(const stp_vars_t *v,
 }
 
 void
-stp_get_size_limit(const stp_vars_t *v, int *max_width, int *max_height,
-		   int *min_width, int *min_height)
+stp_get_size_limit(const stp_vars_t *v,
+		   stp_dimension_t *max_width, stp_dimension_t *max_height,
+		   stp_dimension_t *min_width, stp_dimension_t *min_height)
 {
   const stp_printfuncs_t *printfuncs =
     stpi_get_printfuncs(stp_get_printer(v));
@@ -487,7 +485,7 @@ stp_get_size_limit(const stp_vars_t *v, int *max_width, int *max_height,
 }
 
 void
-stp_describe_resolution(const stp_vars_t *v, int *x, int *y)
+stp_describe_resolution(const stp_vars_t *v, stp_resolution_t *x, stp_resolution_t *y)
 {
   const stp_printfuncs_t *printfuncs =
     stpi_get_printfuncs(stp_get_printer(v));
@@ -505,6 +503,8 @@ stp_describe_output(const stp_vars_t *v)
 int
 stp_verify(stp_vars_t *v)
 {
+  if (stp_get_verified(v))
+    return 1;
   const stp_printfuncs_t *printfuncs =
     stpi_get_printfuncs(stp_get_printer(v));
   stp_vars_t *nv = stp_vars_create_copy(v);
@@ -563,6 +563,14 @@ stp_get_external_options(const stp_vars_t *v)
     return NULL;
 }
 
+const stp_papersize_t *
+stpi_printer_describe_papersize(const stp_vars_t *v, const char *name)
+{
+  const stp_printfuncs_t *printfuncs =
+    stpi_get_printfuncs(stp_get_printer(v));
+  return (printfuncs->describe_papersize)(v, name);
+}
+
 static int
 verify_string_param(const stp_vars_t *v, const char *parameter,
 		    stp_parameter_t *desc, int quiet)
@@ -575,7 +583,6 @@ verify_string_param(const stp_vars_t *v, const char *parameter,
       const char *checkval = stp_get_string_parameter(v, parameter);
       stp_string_list_t *vptr = desc->bounds.str;
       size_t count = 0;
-      int i;
       stp_dprintf(STP_DBG_VARS, v, "     value %s\n",
 		  checkval ? checkval : "(null)");
       if (vptr)
@@ -594,12 +601,8 @@ verify_string_param(const stp_vars_t *v, const char *parameter,
 	}
       else if (count > 0)
 	{
-	  for (i = 0; i < count; i++)
-	    if (!strcmp(checkval, stp_string_list_param(vptr, i)->name))
-	      {
-		answer = PARAMETER_OK;
-		break;
-	      }
+	  if (stp_string_list_is_present(vptr, checkval))
+	    answer = PARAMETER_OK;
 	  if (!answer && !quiet)
 	    stp_eprintf(v, _("`%s' is not a valid %s\n"), checkval, parameter);
 	}
@@ -660,18 +663,18 @@ verify_int_param(const stp_vars_t *v, const char *parameter,
 
 static int
 verify_dimension_param(const stp_vars_t *v, const char *parameter,
-		 stp_parameter_t *desc, int quiet)
+		       stp_parameter_t *desc, int quiet)
 {
   stp_dprintf(STP_DBG_VARS, v, "    Verifying dimension %s\n", parameter);
   if (desc->is_mandatory ||
       stp_check_dimension_parameter(v, parameter, STP_PARAMETER_ACTIVE))
     {
-      int checkval = stp_get_dimension_parameter(v, parameter);
+      stp_dimension_t checkval = stp_get_dimension_parameter(v, parameter);
       if (checkval < desc->bounds.dimension.lower ||
 	  checkval > desc->bounds.dimension.upper)
 	{
 	  if (!quiet)
-	    stp_eprintf(v, _("%s must be between %d and %d (is %d)\n"),
+	    stp_eprintf(v, _("%s must be between %f and %f (is %f)\n"),
 			parameter, desc->bounds.dimension.lower,
 			desc->bounds.dimension.upper, checkval);
 	  stp_parameter_description_destroy(desc);
@@ -816,7 +819,7 @@ stp_verify_printer_params(stp_vars_t *v)
   int nparams;
   int i;
   int answer = 1;
-  int left, top, bottom, right;
+  stp_dimension_t left, top, bottom, right;
   const char *pagesize = stp_get_string_parameter(v, "PageSize");
 
   stp_dprintf(STP_DBG_VARS, v, "** Entering stp_verify_printer_params(0x%p)\n",
@@ -835,7 +838,7 @@ stp_verify_printer_params(stp_vars_t *v)
     }
   else
     {
-      int width, height, min_height, min_width;
+      stp_dimension_t width, height, min_height, min_width;
       stp_get_size_limit(v, &width, &height, &min_width, &min_height);
       if (stp_get_page_height(v) <= min_height ||
 	  stp_get_page_height(v) > height ||
@@ -845,7 +848,7 @@ stp_verify_printer_params(stp_vars_t *v)
 	  stp_eprintf(v, _("Page size is not valid\n"));
 	}
       stp_dprintf(STP_DBG_PAPER, v,
-		  "page size max %d %d min %d %d actual %d %d\n",
+		  "page size max %f %f min %f %f actual %f %f\n",
 		  width, height, min_width, min_height,
 		  stp_get_page_width(v), stp_get_page_height(v));
     }
@@ -853,23 +856,23 @@ stp_verify_printer_params(stp_vars_t *v)
   stp_get_imageable_area(v, &left, &right, &bottom, &top);
 
   stp_dprintf(STP_DBG_PAPER, v,
-	      "page      left %d top %d right %d bottom %d\n",
+	      "page      left %f top %f right %f bottom %f\n",
 	      left, top, right, bottom);
   stp_dprintf(STP_DBG_PAPER, v,
-	      "requested left %d top %d width %d height %d\n",
+	      "requested left %f top %f width %f height %f\n",
 	      stp_get_left(v), stp_get_top(v),
 	      stp_get_width(v), stp_get_height(v));
 
   if (stp_get_top(v) < top)
     {
       answer = 0;
-      stp_eprintf(v, _("Top margin must not be less than %d\n"), top);
+      stp_eprintf(v, _("Top margin must not be less than %f\n"), top);
     }
 
   if (stp_get_left(v) < left)
     {
       answer = 0;
-      stp_eprintf(v, _("Left margin must not be less than %d\n"), left);
+      stp_eprintf(v, _("Left margin must not be less than %f\n"), left);
     }
 
   if (stp_get_height(v) <= 0)
@@ -887,14 +890,14 @@ stp_verify_printer_params(stp_vars_t *v)
   if (stp_get_left(v) + stp_get_width(v) > right)
     {
       answer = 0;
-      stp_eprintf(v, _("Image is too wide for the page: left margin is %d, width %d, right edge is %d\n"),
+      stp_eprintf(v, _("Image is too wide for the page: left margin is %f, width %f, right edge is %f\n"),
 		  stp_get_left(v), stp_get_width(v), right);
     }
 
   if (stp_get_top(v) + stp_get_height(v) > bottom)
     {
       answer = 0;
-      stp_eprintf(v, _("Image is too long for the page: top margin is %d, height %d, bottom edge is %d\n"),
+      stp_eprintf(v, _("Image is too long for the page: top margin is %f, height %f, bottom edge is %f\n"),
 		  stp_get_top(v), stp_get_height(v), bottom);
     }
 
@@ -953,8 +956,76 @@ stp_find_params(const char *name, const char *family)
   return NULL;
 }
 
+/* Why couldn't strcmp be a valid comparison function... */
+static int
+compare_names(const void *n1, const void *n2)
+{
+  return strcmp((const char *) n2, (const char *) n2);
+}
+
+void
+stpi_find_duplicate_printers(void)
+{
+  size_t nelts = stp_list_get_length(printer_list);
+  const char **str_data = stp_zalloc(sizeof(const char *) * nelts);
+  stp_list_item_t *printer_item = stp_list_get_start(printer_list);
+  size_t i = 0;
+  int found_dups = 0;
+  const stp_printer_t *printer;
+  while (printer_item)
+    {
+      printer = stp_list_item_get_data(printer_item);
+      STPI_ASSERT(i < nelts, NULL);
+      str_data[i] = printer->driver;
+      printer_item = stp_list_item_next(printer_item);
+      i++;
+    }
+  qsort(str_data, nelts, sizeof(const char *), compare_names);
+  for (i = 0; i < nelts - 1; i++)
+    {
+      if (!strcmp(str_data[i], str_data[i+1]))
+	{
+	  printer_item =
+	    stp_list_get_item_by_name(printer_list, str_data[i]);
+	  printer = stp_list_item_get_data(printer_item);
+	  stp_erprintf("Duplicate printer entry '%s' (%s)\n",
+		       printer->driver, printer->long_name);
+	  found_dups++;
+	}
+    }
+  printer_item = stp_list_get_start(printer_list);
+  i = 0;
+  while (printer_item)
+    {
+      printer = stp_list_item_get_data(printer_item);
+      STPI_ASSERT(i < nelts, NULL);
+      str_data[i] = printer->long_name;
+      printer_item = stp_list_item_next(printer_item);
+      i++;
+    }
+  qsort(str_data, nelts, sizeof(const char *), compare_names);
+  for (i = 0; i < nelts - 1; i++)
+    {
+      if (!strcmp(str_data[i], str_data[i+1]))
+	{
+	  printer_item =
+	    stp_list_get_item_by_long_name(printer_list, str_data[i]);
+	  printer = stp_list_item_get_data(printer_item);
+	  stp_erprintf("Duplicate printer entry '%s' (%s)\n",
+		       printer->driver, printer->long_name);
+	  found_dups++;
+	}
+    }
+  stp_free(str_data);
+  if (found_dups > 0)
+    {
+      stp_erprintf("FATAL Duplicate printers in printer list.  Aborting!\n");
+      stp_abort();
+    }
+}
+
 int
-stp_family_register(stp_list_t *family)
+stpi_family_register(stp_list_t *family)
 {
   stp_list_item_t *printer_item;
   const stp_printer_t *printer;
@@ -969,25 +1040,21 @@ stp_family_register(stp_list_t *family)
 
   if (family)
     {
+      /* Check for duplicates after loading printers */
       printer_item = stp_list_get_start(family);
 
       while(printer_item)
 	{
 	  printer = (const stp_printer_t *) stp_list_item_get_data(printer_item);
-	  if (!stp_list_get_item_by_name(printer_list, printer->driver))
-	    stp_list_item_create(printer_list, NULL, printer);
-	  else
-	    stp_erprintf("Duplicate printer entry `%s' (%s)\n",
-			 printer->driver, printer->long_name);
+	  stp_list_item_create(printer_list, NULL, printer);
 	  printer_item = stp_list_item_next(printer_item);
 	}
     }
-
   return 0;
 }
 
 int
-stp_family_unregister(stp_list_t *family)
+stpi_family_unregister(stp_list_t *family)
 {
   stp_list_item_t *printer_item;
   stp_list_item_t *old_printer_item;
@@ -1253,5 +1320,4 @@ void
 stpi_init_printer(void)
 {
   stp_register_xml_parser("printdef", stpi_xml_process_printdef);
-  stp_register_xml_preload("printers.xml");
 }

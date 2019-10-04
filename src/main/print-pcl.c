@@ -17,8 +17,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 /*
@@ -38,6 +37,12 @@
 /* #define DEBUG */
 /* #define PCL_DEBUG_DISABLE_BLANKLINE_REMOVAL */
 
+#ifdef __GNUC__
+#define UNUSED __attribute__ ((unused))
+#else
+#define UNUSED
+#endif
+
 /*
  * Local functions...
  */
@@ -52,6 +57,7 @@ typedef struct
 {
   int do_blank;
   int blank_lines;
+  unsigned char *row_buf;	/* For color laser */
   unsigned char *comp_buf;
   void (*writefunc)(stp_vars_t *, unsigned char *, int, int);	/* PCL output function */
   int do_cret;
@@ -59,6 +65,7 @@ typedef struct
   int do_6color;
   int height;
   int duplex;
+  int copies;
   int tumble;
   int use_crd;
   int orientation;
@@ -66,6 +73,7 @@ typedef struct
   unsigned int h_offset;      /* decipoints */
   unsigned int v_offset;      /* decipoints */
   int darkness;
+  int nodither;
 } pcl_privdata_t;
 
 /*
@@ -324,6 +332,7 @@ typedef struct {
 #define PCL_COLOR_CMYK4		4	/* CRet printing */
 #define PCL_COLOR_CMYKcm	8	/* CMY + Photo Cart */
 #define PCL_COLOR_CMYK4b	16	/* CRet for HP840c */
+#define PCL_COLOR_RGB		32	/* RGB for color lasers */
 
 #define PCL_PRINTER_LJ		1
 #define PCL_PRINTER_DJ		2
@@ -335,6 +344,8 @@ typedef struct {
 #define PCL_PRINTER_BLANKLINE	64	/* Blank line removal supported */
 #define PCL_PRINTER_DUPLEX	128	/* Printer can have duplexer */
 #define PCL_PRINTER_LABEL       256     /* Datamax-O'Neil PCL Label Printer */
+#define PCL_PRINTER_LJ_COLOR	512	/* Color laser printers */
+#define PCL_PRINTER_COPIES     1024     /* Supports PCL5/HPGL2/HP-RTL copies */
 
 /*
  * FIXME - the 520 shouldn't be lumped in with the 500 as it supports
@@ -711,7 +722,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {0, 0, 0, 0},                     /* A4 Margins */
     PCL_COLOR_NONE,
     PCL_PRINTER_LJ | PCL_PRINTER_TIFF | PCL_PRINTER_LABEL |
-      PCL_PRINTER_BLANKLINE | PCL_PRINTER_CUSTOM_SIZE,
+      PCL_PRINTER_BLANKLINE | PCL_PRINTER_CUSTOM_SIZE | PCL_PRINTER_COPIES,
     custom_papersizes,
     emptylist,
     emptylist,
@@ -725,7 +736,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {0, 0, 0, 0},                     /* A4 Margins */
     PCL_COLOR_NONE,
     PCL_PRINTER_LJ | PCL_PRINTER_TIFF | PCL_PRINTER_LABEL |
-      PCL_PRINTER_BLANKLINE | PCL_PRINTER_CUSTOM_SIZE,
+      PCL_PRINTER_BLANKLINE | PCL_PRINTER_CUSTOM_SIZE | PCL_PRINTER_COPIES,
     custom_papersizes,
     emptylist,
     emptylist,
@@ -739,7 +750,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {0, 0, 0, 0},                     /* A4 Margins */
     PCL_COLOR_NONE,
     PCL_PRINTER_LJ | PCL_PRINTER_TIFF | PCL_PRINTER_LABEL |
-      PCL_PRINTER_BLANKLINE | PCL_PRINTER_CUSTOM_SIZE,
+      PCL_PRINTER_BLANKLINE | PCL_PRINTER_CUSTOM_SIZE | PCL_PRINTER_COPIES,
     custom_papersizes,
     emptylist,
     emptylist,
@@ -753,7 +764,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {0, 0, 0, 0},                     /* A4 Margins */
     PCL_COLOR_NONE,
     PCL_PRINTER_LJ | PCL_PRINTER_TIFF | PCL_PRINTER_LABEL |
-      PCL_PRINTER_BLANKLINE | PCL_PRINTER_CUSTOM_SIZE,
+      PCL_PRINTER_BLANKLINE | PCL_PRINTER_CUSTOM_SIZE | PCL_PRINTER_COPIES,
     custom_papersizes,
     emptylist,
     emptylist,
@@ -767,7 +778,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {0, 0, 0, 0},                     /* A4 Margins */
     PCL_COLOR_NONE,
     PCL_PRINTER_LJ | PCL_PRINTER_TIFF | PCL_PRINTER_LABEL |
-      PCL_PRINTER_BLANKLINE | PCL_PRINTER_CUSTOM_SIZE,
+      PCL_PRINTER_BLANKLINE | PCL_PRINTER_CUSTOM_SIZE | PCL_PRINTER_COPIES,
     custom_papersizes,
     emptylist,
     emptylist,
@@ -781,7 +792,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {0, 0, 0, 0},                     /* A4 Margins */
     PCL_COLOR_NONE,
     PCL_PRINTER_LJ | PCL_PRINTER_TIFF | PCL_PRINTER_LABEL |
-      PCL_PRINTER_BLANKLINE | PCL_PRINTER_CUSTOM_SIZE,
+      PCL_PRINTER_BLANKLINE | PCL_PRINTER_CUSTOM_SIZE | PCL_PRINTER_COPIES,
     custom_papersizes,
     emptylist,
     emptylist,
@@ -795,7 +806,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {0, 0, 0, 0},                     /* A4 Margins */
     PCL_COLOR_NONE,
     PCL_PRINTER_LJ | PCL_PRINTER_TIFF | PCL_PRINTER_LABEL |
-      PCL_PRINTER_BLANKLINE | PCL_PRINTER_CUSTOM_SIZE,
+      PCL_PRINTER_BLANKLINE | PCL_PRINTER_CUSTOM_SIZE | PCL_PRINTER_COPIES,
     custom_papersizes,
     emptylist,
     emptylist,
@@ -808,7 +819,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {49, 49, 15, 15},
     {49, 49, 15, 15},
     PCL_COLOR_NONE,
-    PCL_PRINTER_DJ | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE | PCL_PRINTER_CUSTOM_SIZE | PCL_PRINTER_NEW_ERG,
+    PCL_PRINTER_DJ | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE | PCL_PRINTER_CUSTOM_SIZE | PCL_PRINTER_NEW_ERG | PCL_PRINTER_COPIES,
     letter_a4_papersizes,
     basic_papertypes,
     standard_papersources,
@@ -822,7 +833,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {49, 49, 15, 15},
     {49, 49, 15, 15},
     PCL_COLOR_CMYK,
-    PCL_PRINTER_DJ | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE | PCL_PRINTER_CUSTOM_SIZE | PCL_PRINTER_NEW_ERG,
+    PCL_PRINTER_DJ | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE | PCL_PRINTER_CUSTOM_SIZE | PCL_PRINTER_NEW_ERG | PCL_PRINTER_COPIES,
     letter_a4_papersizes,
     basic_papertypes,
     standard_papersources,
@@ -835,7 +846,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {30, 30, 15, 15},		/* These margins are for sheet mode FIX */
     {30, 30, 15, 15},
     PCL_COLOR_NONE,
-    PCL_PRINTER_DJ | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE | PCL_PRINTER_CUSTOM_SIZE | PCL_PRINTER_NEW_ERG,
+    PCL_PRINTER_DJ | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE | PCL_PRINTER_CUSTOM_SIZE | PCL_PRINTER_NEW_ERG | PCL_PRINTER_COPIES,
     letter_a4_papersizes,
     basic_papertypes,
     standard_papersources,
@@ -848,7 +859,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {30, 30, 15, 15},	/* These margins are for roll mode FIX */
     {30, 30, 15, 15},
     PCL_COLOR_CMYK,
-    PCL_PRINTER_DJ | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE | PCL_PRINTER_CUSTOM_SIZE | PCL_PRINTER_NEW_ERG,
+    PCL_PRINTER_DJ | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE | PCL_PRINTER_CUSTOM_SIZE | PCL_PRINTER_NEW_ERG | PCL_PRINTER_COPIES,
     letter_a4_papersizes,
     basic_papertypes,
     standard_papersources,
@@ -861,7 +872,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {49, 49, 15, 15},		/* Check/Fix */
     {49, 49, 15, 15},
     PCL_COLOR_CMYK,
-    PCL_PRINTER_DJ | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE | PCL_PRINTER_CUSTOM_SIZE | PCL_PRINTER_NEW_ERG,
+    PCL_PRINTER_DJ | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE | PCL_PRINTER_CUSTOM_SIZE | PCL_PRINTER_NEW_ERG | PCL_PRINTER_COPIES,
     letter_a4_papersizes,
     basic_papertypes,
     standard_papersources,
@@ -874,7 +885,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {49, 49, 15, 15},		/* Check/Fix */
     {49, 49, 15, 15},
     PCL_COLOR_CMYK,
-    PCL_PRINTER_DJ | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE | PCL_PRINTER_CUSTOM_SIZE | PCL_PRINTER_NEW_ERG,
+    PCL_PRINTER_DJ | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE | PCL_PRINTER_CUSTOM_SIZE | PCL_PRINTER_NEW_ERG | PCL_PRINTER_COPIES,
     letter_a4_papersizes,
     basic_papertypes,
     standard_papersources,
@@ -1081,7 +1092,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {12, 12, 10, 10},	/* Check/Fix */
     PCL_COLOR_CMY,
     PCL_PRINTER_DJ | PCL_PRINTER_NEW_ERG | PCL_PRINTER_TIFF | PCL_PRINTER_MEDIATYPE |
-      PCL_PRINTER_CUSTOM_SIZE | PCL_PRINTER_BLANKLINE,
+      PCL_PRINTER_CUSTOM_SIZE | PCL_PRINTER_BLANKLINE | PCL_PRINTER_COPIES,
     dj1200_papersizes,
     basic_papertypes,
     dj_papersources,
@@ -1095,7 +1106,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {12, 12, 10, 10},	/* Check/Fix */
     PCL_COLOR_CMYK,
     PCL_PRINTER_DJ | PCL_PRINTER_NEW_ERG | PCL_PRINTER_TIFF | PCL_PRINTER_MEDIATYPE |
-      PCL_PRINTER_CUSTOM_SIZE | PCL_PRINTER_BLANKLINE,
+      PCL_PRINTER_CUSTOM_SIZE | PCL_PRINTER_BLANKLINE | PCL_PRINTER_COPIES,
     dj1200_papersizes,
     basic_papertypes,
     dj_papersources,
@@ -1201,7 +1212,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {12, 12, 18, 18},
     {12, 12, 10, 10},	/* Check/Fix */
     PCL_COLOR_NONE,
-    PCL_PRINTER_LJ | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE,
+    PCL_PRINTER_LJ | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE | PCL_PRINTER_COPIES,
     ljsmall_papersizes,
     emptylist,
     laserjet_papersources,
@@ -1214,7 +1225,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {12, 12, 18, 18},
     {12, 12, 10, 10},	/* Check/Fix */
     PCL_COLOR_NONE,
-    PCL_PRINTER_LJ | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE,
+    PCL_PRINTER_LJ | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE | PCL_PRINTER_COPIES,
     ljsmall_papersizes,
     emptylist,
     laserjet_papersources,
@@ -1227,7 +1238,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {12, 12, 18, 18},
     {12, 12, 18, 18},	/* Check/Fix */
     PCL_COLOR_NONE,
-    PCL_PRINTER_LJ | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE,
+    PCL_PRINTER_LJ | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE | PCL_PRINTER_COPIES,
     ljsmall_papersizes,
     emptylist,
     laserjet_papersources,
@@ -1240,7 +1251,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {12, 12, 18, 18},
     {12, 12, 10, 10},	/* Check/Fix */
     PCL_COLOR_NONE,
-    PCL_PRINTER_LJ | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE,
+    PCL_PRINTER_LJ | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE | PCL_PRINTER_COPIES,
     ljbig_papersizes,
     emptylist,
     laserjet_papersources,
@@ -1253,7 +1264,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {12, 12, 18, 18},
     {12, 12, 18, 18},	/* Check/Fix */
     PCL_COLOR_NONE,
-    PCL_PRINTER_LJ | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE,
+    PCL_PRINTER_LJ | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE | PCL_PRINTER_COPIES,
     ljbig_papersizes,
     emptylist,
     laserjet_papersources,
@@ -1266,7 +1277,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {12, 12, 18, 18},
     {12, 12, 18, 18},	/* Check/Fix */
     PCL_COLOR_NONE,
-    PCL_PRINTER_LJ | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE,
+    PCL_PRINTER_LJ | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE | PCL_PRINTER_COPIES,
     ljtabloid_papersizes,
     emptylist,
     laserjet_papersources,
@@ -1279,7 +1290,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {12, 12, 18, 18},
     {12, 12, 10, 10},	/* Check/Fix */
     PCL_COLOR_NONE,
-    PCL_PRINTER_LJ | PCL_PRINTER_NEW_ERG | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE,
+    PCL_PRINTER_LJ | PCL_PRINTER_NEW_ERG | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE | PCL_PRINTER_COPIES,
     ljsmall_papersizes,
     emptylist,
     laserjet_papersources,
@@ -1292,7 +1303,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {12, 12, 18, 18},
     {12, 12, 10, 10},	/* Check/Fix */
     PCL_COLOR_NONE,
-    PCL_PRINTER_LJ | PCL_PRINTER_NEW_ERG | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE,
+    PCL_PRINTER_LJ | PCL_PRINTER_NEW_ERG | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE | PCL_PRINTER_COPIES,
     ljbig_papersizes,
     emptylist,
     laserjet_papersources,
@@ -1306,7 +1317,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {12, 12, 10, 10},	/* Check/Fix */
     PCL_COLOR_NONE,
     PCL_PRINTER_LJ | PCL_PRINTER_NEW_ERG | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE |
-      PCL_PRINTER_DUPLEX,
+      PCL_PRINTER_DUPLEX | PCL_PRINTER_COPIES,
     ljbig_papersizes,
     emptylist,
     laserjet_papersources,
@@ -1320,7 +1331,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {12, 12, 10, 10},	/* Check/Fix */
     PCL_COLOR_NONE,
     PCL_PRINTER_LJ | PCL_PRINTER_NEW_ERG | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE |
-      PCL_PRINTER_DUPLEX,
+      PCL_PRINTER_DUPLEX | PCL_PRINTER_COPIES,
     ljsmall_papersizes,
     emptylist,
     laserjet_papersources,
@@ -1334,7 +1345,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {12, 12, 10, 10},	/* Check/Fix */
     PCL_COLOR_NONE,
     PCL_PRINTER_LJ | PCL_PRINTER_NEW_ERG | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE |
-      PCL_PRINTER_DUPLEX,
+      PCL_PRINTER_DUPLEX | PCL_PRINTER_COPIES,
     ljbig_papersizes,
     emptylist,
     laserjet_papersources,
@@ -1348,7 +1359,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {12, 12, 18, 18},	/* Check/Fix */
     PCL_COLOR_NONE,
     PCL_PRINTER_LJ | PCL_PRINTER_NEW_ERG | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE |
-      PCL_PRINTER_DUPLEX,
+      PCL_PRINTER_DUPLEX | PCL_PRINTER_COPIES,
     ljsmall_papersizes,
     emptylist,
     laserjet_papersources,
@@ -1362,7 +1373,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {12, 12, 18, 18},	/* Check/Fix */
     PCL_COLOR_NONE,
     PCL_PRINTER_LJ | PCL_PRINTER_NEW_ERG | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE |
-      PCL_PRINTER_DUPLEX,
+      PCL_PRINTER_DUPLEX | PCL_PRINTER_COPIES,
     ljbig_papersizes,
     emptylist,
     laserjet_papersources,
@@ -1376,7 +1387,7 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {12, 12, 18, 18},	/* Check/Fix */
     PCL_COLOR_NONE,
     PCL_PRINTER_LJ | PCL_PRINTER_NEW_ERG | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE |
-      PCL_PRINTER_DUPLEX,
+      PCL_PRINTER_DUPLEX | PCL_PRINTER_COPIES,
     ljtabloid_papersizes,
     emptylist,
     laserjet_papersources,
@@ -1390,17 +1401,98 @@ static const pcl_cap_t pcl_model_capabilities[] =
     {12, 12, 10, 10},	/* Check/Fix */
     PCL_COLOR_NONE,
     PCL_PRINTER_LJ | PCL_PRINTER_NEW_ERG | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE |
-      PCL_PRINTER_DUPLEX,
+      PCL_PRINTER_DUPLEX | PCL_PRINTER_COPIES,
     ljbig_papersizes,
+    emptylist,
+    laserjet_papersources,
+  },
+  /* Color laser printer, small format */
+  { 50000,
+    17 * 72 / 2, 14 * 72,
+    1, 1,				/* Min paper size */
+    PCL_RES_150_150 | PCL_RES_300_300 | PCL_RES_600_600,
+    {12, 12, 18, 18},
+    {12, 12, 10, 10},	/* Check/Fix */
+    PCL_COLOR_RGB,
+    PCL_PRINTER_LJ_COLOR | PCL_PRINTER_NEW_ERG | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE |
+      PCL_PRINTER_DUPLEX | PCL_PRINTER_COPIES,
+    ljsmall_papersizes,
+    emptylist,
+    laserjet_papersources,
+  },
+  /* Color laser printer, large format */
+  { 50001,
+    13 * 72, 19 * 72,
+    1, 1,				/* Min paper size */
+    PCL_RES_150_150 | PCL_RES_300_300 | PCL_RES_600_600,
+    {12, 12, 18, 18},
+    {12, 12, 10, 10},	/* Check/Fix */
+    PCL_COLOR_RGB,
+    PCL_PRINTER_LJ_COLOR | PCL_PRINTER_NEW_ERG | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE |
+      PCL_PRINTER_DUPLEX | PCL_PRINTER_COPIES,
+    ljbig_papersizes,
+    emptylist,
+    laserjet_papersources,
+  },
+  /* Color laser printer, small format, no expanded A4 margins */
+  { 50002,
+    17 * 72 / 2, 14 * 72,
+    1, 1,				/* Min paper size */
+    PCL_RES_150_150 | PCL_RES_300_300 | PCL_RES_600_600,
+    {12, 12, 18, 18},
+    {12, 12, 18, 18},	/* Check/Fix */
+    PCL_COLOR_RGB,
+    PCL_PRINTER_LJ_COLOR | PCL_PRINTER_NEW_ERG | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE |
+      PCL_PRINTER_DUPLEX | PCL_PRINTER_COPIES,
+    ljsmall_papersizes,
+    emptylist,
+    laserjet_papersources,
+  },
+  /* Color laser printer with large paper, no expanded A4 margins */
+  { 50003,
+    13 * 72, 19 * 72,
+    1, 1,				/* Min paper size */
+    PCL_RES_150_150 | PCL_RES_300_300 | PCL_RES_600_600,
+    {12, 12, 18, 18},
+    {12, 12, 18, 18},	/* Check/Fix */
+    PCL_COLOR_RGB,
+    PCL_PRINTER_LJ_COLOR | PCL_PRINTER_NEW_ERG | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE |
+      PCL_PRINTER_DUPLEX | PCL_PRINTER_COPIES,
+    ljbig_papersizes,
+    emptylist,
+    laserjet_papersources,
+  },
+  /* Color laser printer with tabloid paper, no expanded A4 margins */
+  { 50004,
+    118 * 72 / 10, 17 * 72,	/* 11.8*17 */
+    1, 1,				/* Min paper size */
+    PCL_RES_150_150 | PCL_RES_300_300 | PCL_RES_600_600,
+    {12, 12, 18, 18},
+    {12, 12, 18, 18},	/* Check/Fix */
+    PCL_COLOR_RGB,
+    PCL_PRINTER_LJ_COLOR | PCL_PRINTER_NEW_ERG | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE |
+      PCL_PRINTER_DUPLEX | PCL_PRINTER_COPIES,
+    ljtabloid_papersizes,
+    emptylist,
+    laserjet_papersources,
+  },
+  /* Special case the Color LaserJet 5 */
+  { 50012,
+    17 * 72 / 2, 14 * 72,
+    1, 1,				/* Min paper size */
+    PCL_RES_150_150 | PCL_RES_300_300 | PCL_RES_600_600,
+    {12, 12, 18, 18},
+    {12, 12, 18, 18},	/* Check/Fix */
+    PCL_COLOR_RGB,
+    PCL_PRINTER_LJ_COLOR | PCL_PRINTER_TIFF | PCL_PRINTER_BLANKLINE |
+      PCL_PRINTER_DUPLEX | PCL_PRINTER_COPIES,
+    ljsmall_papersizes,
     emptylist,
     laserjet_papersources,
   },
 };
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-const-variable"
-
-static const char standard_sat_adjustment[] =
+static const char UNUSED standard_sat_adjustment[] =
 "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
 "<gutenprint>\n"
 "<curve wrap=\"wrap\" type=\"linear\" gamma=\"0\">\n"
@@ -1414,7 +1506,6 @@ static const char standard_sat_adjustment[] =
 "</sequence>\n"
 "</curve>\n"
 "</gutenprint>\n";
-#pragma GCC diagnostic pop
 
 static const char standard_lum_adjustment[] =
 "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
@@ -1521,6 +1612,12 @@ static const stp_parameter_t the_parameters[] =
     STP_PARAMETER_TYPE_INT, STP_PARAMETER_CLASS_FEATURE,
     STP_PARAMETER_LEVEL_BASIC, 0, 1, STP_CHANNEL_NONE, 1, 0
   },
+  {
+    "NativeCopies", N_("Printer Generates Copies Natively"), "Color=No,Category=Job Mode",
+    N_("Printer Generates Copies"),
+    STP_PARAMETER_TYPE_BOOLEAN, STP_PARAMETER_CLASS_FEATURE,
+    STP_PARAMETER_LEVEL_INTERNAL, 1, 0, STP_CHANNEL_NONE, 0, 1
+  },
 };
 
 static const int the_parameter_count =
@@ -1560,6 +1657,30 @@ static const float_param_t float_parameters[] =
       STP_PARAMETER_TYPE_DOUBLE, STP_PARAMETER_CLASS_OUTPUT,
       STP_PARAMETER_LEVEL_ADVANCED, 0, 1, 3, 1, 0
     }, 0.0, 2.0, 1.0, 1
+  },
+  {
+    {
+      "RedDensity", N_("Red Density"), "Color=Yes,Category=Output Level Adjustment",
+      N_("Adjust the red density"),
+      STP_PARAMETER_TYPE_DOUBLE, STP_PARAMETER_CLASS_OUTPUT,
+      STP_PARAMETER_LEVEL_ADVANCED, 0, 1, 5, 1, 0
+    }, 0.0, 1.0, 1.0, 1
+  },
+  {
+    {
+      "GreenDensity", N_("Green Density"), "Color=Yes,Category=Output Level Adjustment",
+      N_("Adjust the green density"),
+      STP_PARAMETER_TYPE_DOUBLE, STP_PARAMETER_CLASS_OUTPUT,
+      STP_PARAMETER_LEVEL_ADVANCED, 0, 1, 5, 1, 0
+    }, 0.0, 1.0, 1.0, 1
+  },
+  {
+    {
+      "BlueDensity", N_("Blue Density"), "Color=Yes,Category=Output Level Adjustment",
+      N_("Adjust the blue density"),
+      STP_PARAMETER_TYPE_DOUBLE, STP_PARAMETER_CLASS_OUTPUT,
+      STP_PARAMETER_LEVEL_ADVANCED, 0, 1, 4, 1, 0
+    }, 0.0, 1.0, 1.0, 1
   },
   {
     {
@@ -1612,7 +1733,8 @@ sizeof(float_parameters) / sizeof(const float_param_t);
  * Convert a name into it's option value
  */
 
-static int pcl_string_to_val(const char *string,		/* I: String */
+static int pcl_string_to_val(const stp_vars_t *v,
+			     const char *string,		/* I: String */
                            const pcl_t *options,	/* I: Options */
 			   int num_options)		/* I: Num options */
 {
@@ -1631,7 +1753,7 @@ static int pcl_string_to_val(const char *string,		/* I: String */
        }
   }
 
-  stp_deprintf(STP_DBG_PCL, "String: %s, Code: %d\n", string, code);
+  stp_dprintf(STP_DBG_PCL, v, "String: %s, Code: %d\n", string, code);
 
   return(code);
 }
@@ -1640,7 +1762,8 @@ static int pcl_string_to_val(const char *string,		/* I: String */
  * Convert a value into it's option name
  */
 
-static const char * pcl_val_to_string(int code,			/* I: Code */
+static const char * pcl_val_to_string(const stp_vars_t *v,
+				      int code,			/* I: Code */
                            const pcl_t *options,	/* I: Options */
 			   int num_options)		/* I: Num options */
 {
@@ -1659,12 +1782,13 @@ static const char * pcl_val_to_string(int code,			/* I: Code */
        }
   }
 
-  stp_deprintf(STP_DBG_PCL, "Code: %d, String: %s\n", code, string);
+  stp_dprintf(STP_DBG_PCL, v, "Code: %d, String: %s\n", code, string);
 
   return(string);
 }
 
-static const char * pcl_val_to_text(int code,			/* I: Code */
+static const char * pcl_val_to_text(const stp_vars_t *v,
+				    int code,			/* I: Code */
                            const pcl_t *options,	/* I: Options */
 			   int num_options)		/* I: Num options */
 {
@@ -1683,7 +1807,7 @@ static const char * pcl_val_to_text(int code,			/* I: Code */
        }
   }
 
-  stp_deprintf(STP_DBG_PCL, "Code: %d, String: %s\n", code, string);
+  stp_dprintf(STP_DBG_PCL, v, "Code: %d, String: %s\n", code, string);
 
   return(string);
 }
@@ -1709,16 +1833,17 @@ static const stp_shade_t variable_shades[] =
  */
 
 static const pcl_cap_t *				/* O: Capabilities */
-pcl_get_model_capabilities(int model)	/* I: Model */
+pcl_get_model_capabilities(const stp_vars_t *v)	/* I: Model */
 {
   int i;
+  int model = stp_get_model_id(v);
   int models= sizeof(pcl_model_capabilities) / sizeof(pcl_cap_t);
   for (i=0; i<models; i++) {
     if (pcl_model_capabilities[i].model == model) {
       return &(pcl_model_capabilities[i]);
     }
   }
-  stp_erprintf("pcl: model %d not found in capabilities list.\n",model);
+  stp_eprintf(v, "pcl: model %d not found in capabilities list.\n",model);
   return &(pcl_model_capabilities[0]);
 }
 
@@ -1727,10 +1852,9 @@ pcl_get_model_capabilities(int model)	/* I: Model */
  */
 
 static void
-pcl_describe_resolution(const stp_vars_t *v, int *x, int *y)
+pcl_describe_resolution(const stp_vars_t *v, stp_resolution_t *x, stp_resolution_t *y)
 {
   int i;
-  int model = stp_get_model_id(v);
   const char *resolution = stp_get_string_parameter(v, "Resolution");
   const char *quality;
   const pcl_cap_t *caps = NULL;
@@ -1747,7 +1871,7 @@ pcl_describe_resolution(const stp_vars_t *v, int *x, int *y)
 	}
     }
   quality = stp_get_string_parameter(v, "Quality");
-  caps = pcl_get_model_capabilities(model);
+  caps = pcl_get_model_capabilities(v);
   if (quality && strcmp(quality, "None") == 0)
     quality = "Standard";
   if (quality)
@@ -1757,8 +1881,8 @@ pcl_describe_resolution(const stp_vars_t *v, int *x, int *y)
 	  if ((caps->resolutions & pcl_qualities[i].pcl_code) &&
 	      !strcmp(quality, pcl_qualities[i].pcl_name))
 	    {
-	      *x = pcl_qualities[i].p0;
-	      *y = pcl_qualities[i].p1;
+	      *x = (stp_dimension_t) pcl_qualities[i].p0;
+	      *y = (stp_dimension_t) pcl_qualities[i].p1;
 	      return;
 	    }
 	}
@@ -1771,8 +1895,8 @@ pcl_describe_resolution(const stp_vars_t *v, int *x, int *y)
  * Convert Media size name into PCL media code for printer
  */
 
-static int pcl_convert_media_size(const char *media_size,	/* I: Media size string */
-				  int  model)		/* I: model number */
+static int pcl_convert_media_size(const stp_vars_t *v,
+				  const char *media_size)
 {
 
   int i;
@@ -1783,24 +1907,25 @@ static int pcl_convert_media_size(const char *media_size,	/* I: Media size strin
   * First look up the media size in the table and convert to the code.
   */
 
-  media_code = pcl_string_to_val(media_size, pcl_media_sizes,
+  media_code = pcl_string_to_val(v, media_size, pcl_media_sizes,
                                  NUM_PRINTER_PAPER_SIZES);
 
-  stp_deprintf(STP_DBG_PCL, "Media Size: %s, Code: %d\n", media_size, media_code);
+  stp_dprintf(STP_DBG_PCL, v, "Media Size: %s, Code: %d\n", media_size, media_code);
 
  /*
   * Now see if the printer supports the code found.
   */
 
   if (media_code != -1) {
-    caps = pcl_get_model_capabilities(model);
+    int model = stp_get_model_id(v);
+    caps = pcl_get_model_capabilities(v);
 
     for (i=0; (i<NUM_PRINTER_PAPER_SIZES) && (caps->paper_sizes[i] != -1); i++) {
       if (media_code == (int) caps->paper_sizes[i])
         return(media_code);		/* Is supported */
     }
 
-    stp_deprintf(STP_DBG_PCL, "Media Code %d not supported by printer model %d.\n",
+    stp_dprintf(STP_DBG_PCL, v, "Media Code %d not supported by printer model %d.\n",
       media_code, model);
     return(-1);				/* Not supported */
   }
@@ -1864,11 +1989,11 @@ static const stp_param_string_t label_separator_types[] =
  */
 
 static int
-pcl_papersize_valid(const stp_papersize_t *pt,
-		    int model)
+pcl_papersize_valid(const stp_vars_t *v,
+		    const stp_papersize_t *pt)
 {
 
-  const pcl_cap_t *caps = pcl_get_model_capabilities(model);
+  const pcl_cap_t *caps = pcl_get_model_capabilities(v);
 
 #ifdef PCL_NO_CUSTOM_PAPERSIZES
   int use_custom = 0;
@@ -1898,16 +2023,16 @@ pcl_papersize_valid(const stp_papersize_t *pt,
 
 /*
  * Is it a valid type?
- */  
+ */
   if (pt->paper_size_type != PAPERSIZE_TYPE_STANDARD &&
       pt->paper_size_type != PAPERSIZE_TYPE_ENVELOPE)
     return(0);
-  
+
 /*
  * Is it a recognized supported name?
  */
 
-  if (pcl_convert_media_size(pt->name, model) != -1)
+  if (pcl_convert_media_size(v, pt->name) != -1)
     return(1);
 
 /*
@@ -1963,7 +2088,7 @@ pcl_list_parameters(const stp_vars_t *v)
   tmp_list = stp_dither_list_parameters(v);
   stp_parameter_list_append(ret, tmp_list);
   stp_parameter_list_destroy(tmp_list);
-  
+
   for (i = 0; i < the_parameter_count; i++)
     stp_parameter_list_add_param(ret, &(the_parameters[i]));
   for (i = 0; i < float_parameter_count; i++)
@@ -1983,21 +2108,21 @@ pcl_parameters(const stp_vars_t *v, const char *name,
   if (name == NULL)
     return;
 
-  stp_deprintf(STP_DBG_PCL, "pcl_parameters(): Name = %s\n", name);
+  stp_dprintf(STP_DBG_PCL, v, "pcl_parameters(): Name = %s\n", name);
 
-  caps = pcl_get_model_capabilities(model);
+  caps = pcl_get_model_capabilities(v);
 
-  stp_deprintf(STP_DBG_PCL, "Printer model = %d\n", model);
-  stp_deprintf(STP_DBG_PCL, "PageWidth = %d, PageHeight = %d\n", caps->custom_max_width, caps->custom_max_height);
-  stp_deprintf(STP_DBG_PCL, "MinPageWidth = %d, MinPageHeight = %d\n", caps->custom_min_width, caps->custom_min_height);
-  stp_deprintf(STP_DBG_PCL, "Normal Margins: top = %d, bottom = %d, left = %d, right = %d\n",
+  stp_dprintf(STP_DBG_PCL, v, "Printer model = %d\n", model);
+  stp_dprintf(STP_DBG_PCL, v, "PageWidth = %d, PageHeight = %d\n", caps->custom_max_width, caps->custom_max_height);
+  stp_dprintf(STP_DBG_PCL, v, "MinPageWidth = %d, MinPageHeight = %d\n", caps->custom_min_width, caps->custom_min_height);
+  stp_dprintf(STP_DBG_PCL, v, "Normal Margins: top = %d, bottom = %d, left = %d, right = %d\n",
     caps->normal_margins.top_margin, caps->normal_margins.bottom_margin,
     caps->normal_margins.left_margin, caps->normal_margins.right_margin);
-  stp_deprintf(STP_DBG_PCL, "A4 Margins: top = %d, bottom = %d, left = %d, right = %d\n",
+  stp_dprintf(STP_DBG_PCL, v, "A4 Margins: top = %d, bottom = %d, left = %d, right = %d\n",
     caps->a4_margins.top_margin, caps->a4_margins.bottom_margin,
     caps->a4_margins.left_margin, caps->a4_margins.right_margin);
-  stp_deprintf(STP_DBG_PCL, "Resolutions: %d\n", caps->resolutions);
-  stp_deprintf(STP_DBG_PCL, "ColorType = %d, PrinterType = %d\n", caps->color_type, caps->stp_printer_type);
+  stp_dprintf(STP_DBG_PCL, v, "Resolutions: %d\n", caps->resolutions);
+  stp_dprintf(STP_DBG_PCL, v, "ColorType = %d, PrinterType = %d\n", caps->color_type, caps->stp_printer_type);
 
   for (i = 0; i < the_parameter_count; i++)
     if (strcmp(name, the_parameters[i].name) == 0)
@@ -2020,14 +2145,20 @@ pcl_parameters(const stp_vars_t *v, const char *name,
 
   if (strcmp(name, "PageSize") == 0)
     {
-      int papersizes = stp_known_papersizes();
+      const stp_papersize_list_t *paper_sizes =
+	((caps->stp_printer_type & PCL_PRINTER_LABEL) ?
+	 stpi_get_papersize_list_named("labels", "") :
+	 stpi_get_standard_papersize_list());
+      const stp_papersize_list_item_t *ptli =
+	stpi_papersize_list_get_start(paper_sizes);
       description->bounds.str = stp_string_list_create();
-      for (i = 0; i < papersizes; i++)
+      while (ptli)
 	{
-	  const stp_papersize_t *pt = stp_get_papersize_by_index(i);
-	  if (strlen(pt->name) > 0 && pcl_papersize_valid(pt, model))
+	  const stp_papersize_t *pt = stpi_paperlist_item_get_data(ptli);
+	  if (strlen(pt->name) > 0 && pcl_papersize_valid(v, pt))
 	    stp_string_list_add_string(description->bounds.str,
 				       pt->name, gettext(pt->text));
+	  ptli = stpi_paperlist_item_next(ptli);
 	}
       description->deflt.str =
 	stp_string_list_param(description->bounds.str, 0)->name;
@@ -2039,10 +2170,10 @@ pcl_parameters(const stp_vars_t *v, const char *name,
       {
 	for (i=0; (i < NUM_PRINTER_PAPER_TYPES) && (caps->paper_types[i] != -1); i++)
 	  stp_string_list_add_string(description->bounds.str,
-				    pcl_val_to_string(caps->paper_types[i],
+				     pcl_val_to_string(v, caps->paper_types[i],
 						      pcl_media_types,
 						      NUM_PRINTER_PAPER_TYPES),
-				    pcl_val_to_text(caps->paper_types[i],
+				     pcl_val_to_text(v, caps->paper_types[i],
 						    pcl_media_types,
 						    NUM_PRINTER_PAPER_TYPES));
 	description->deflt.str =
@@ -2058,10 +2189,10 @@ pcl_parameters(const stp_vars_t *v, const char *name,
       {
 	for (i=0; (i < NUM_PRINTER_PAPER_SOURCES) && (caps->paper_sources[i] != -1); i++)
 	  stp_string_list_add_string(description->bounds.str,
-				    pcl_val_to_string(caps->paper_sources[i],
+				    pcl_val_to_string(v, caps->paper_sources[i],
 						      pcl_media_sources,
 						      NUM_PRINTER_PAPER_SOURCES),
-				    pcl_val_to_text(caps->paper_sources[i],
+				    pcl_val_to_text(v, caps->paper_sources[i],
 						    pcl_media_sources,
 						    NUM_PRINTER_PAPER_SOURCES));
 	description->deflt.str =
@@ -2080,9 +2211,9 @@ pcl_parameters(const stp_vars_t *v, const char *name,
 	{
 	  stp_string_list_add_string
 	    (description->bounds.str,
-	     pcl_val_to_string(pcl_resolutions[i].pcl_code,
+	     pcl_val_to_string(v, pcl_resolutions[i].pcl_code,
 			       pcl_resolutions, NUM_RESOLUTIONS),
-	     pcl_val_to_text(pcl_resolutions[i].pcl_code,
+	     pcl_val_to_text(v, pcl_resolutions[i].pcl_code,
 			     pcl_resolutions, NUM_RESOLUTIONS));
 	}
   }
@@ -2096,12 +2227,12 @@ pcl_parameters(const stp_vars_t *v, const char *name,
       if (caps->resolutions & pcl_qualities[i].pcl_code)
 	{
 	  const char *qual =
-	    pcl_val_to_string(pcl_qualities[i].pcl_code,
+	    pcl_val_to_string(v, pcl_qualities[i].pcl_code,
 			      pcl_qualities, NUM_QUALITIES);
 	  if (! stp_string_list_is_present(description->bounds.str, qual))
 	    stp_string_list_add_string
 	      (description->bounds.str, qual,
-	       pcl_val_to_text(pcl_qualities[i].pcl_code,
+	       pcl_val_to_text(v, pcl_qualities[i].pcl_code,
 			       pcl_qualities, NUM_QUALITIES));
 	  if (strcmp(qual, "Standard") == 0)
 	    has_standard_quality = 1;
@@ -2212,7 +2343,18 @@ pcl_parameters(const stp_vars_t *v, const char *name,
 	   strcmp(name, "YellowDensity") == 0 ||
 	   strcmp(name, "BlackDensity") == 0)
     {
-      if (caps->color_type != PCL_COLOR_NONE &&
+      if ((caps->color_type & ~PCL_COLOR_RGB) != PCL_COLOR_NONE &&
+	  stp_check_string_parameter(v, "PrintingMode", STP_PARAMETER_DEFAULTED) &&
+	  strcmp(stp_get_string_parameter(v, "PrintingMode"), "Color") == 0)
+	description->is_active = 1;
+      else
+	description->is_active = 0;
+    }
+  else if (strcmp(name, "RedDensity") == 0 ||
+	   strcmp(name, "GreenDensity") == 0 ||
+	   strcmp(name, "BlueDensity") == 0)
+    {
+      if (caps->color_type & PCL_COLOR_RGB &&
 	  stp_check_string_parameter(v, "PrintingMode", STP_PARAMETER_DEFAULTED) &&
 	  strcmp(stp_get_string_parameter(v, "PrintingMode"), "Color") == 0)
 	description->is_active = 1;
@@ -2247,6 +2389,8 @@ pcl_parameters(const stp_vars_t *v, const char *name,
 	description->deflt.integer = 6;
       else if (caps->color_type == PCL_COLOR_NONE)
 	description->deflt.integer = 1;
+      else if (caps->color_type & PCL_COLOR_RGB)
+	description->deflt.integer = 3;
       else
 	description->deflt.integer = 4;
       description->bounds.integer.lower = -1;
@@ -2263,6 +2407,11 @@ pcl_parameters(const stp_vars_t *v, const char *name,
       description->deflt.str =
 	stp_string_list_param(description->bounds.str, 0)->name;
     }
+  else if (strcmp(name, "NativeCopies") == 0)
+    {
+      description->deflt.boolean = caps->stp_printer_type & PCL_PRINTER_COPIES;
+      description->is_active = 1;
+    }
 }
 
 
@@ -2272,22 +2421,23 @@ pcl_parameters(const stp_vars_t *v, const char *name,
 static void
 internal_imageable_area(const stp_vars_t *v,     /* I */
 			int  use_paper_margins,
-			int  *left,	/* O - Left position in points */
-			int  *right,	/* O - Right position in points */
-			int  *bottom,	/* O - Bottom position in points */
-			int  *top)	/* O - Top position in points */
+			stp_dimension_t  *left,	/* O - Left position in points */
+			stp_dimension_t  *right,	/* O - Right position in points */
+			stp_dimension_t  *bottom,	/* O - Bottom position in points */
+			stp_dimension_t  *top)	/* O - Top position in points */
 {
-  int	width, height;			/* Size of page */
+  stp_dimension_t	width, height;			/* Size of page */
   const pcl_cap_t *caps;		/* Printer caps */
   int	pcl_media_size;			/* Converted media size */
   const char *media_size = stp_get_string_parameter(v, "PageSize");
   const stp_papersize_t *pp = NULL;
-  int left_margin = 0;
-  int right_margin = 0;
-  int bottom_margin = 0;
-  int top_margin = 0;
+  stp_dimension_t left_margin = 0;
+  stp_dimension_t right_margin = 0;
+  stp_dimension_t bottom_margin = 0;
+  stp_dimension_t top_margin = 0;
+  const stp_papersize_list_t *papersize_list = stpi_get_standard_papersize_list();
 
-  caps = pcl_get_model_capabilities(stp_get_model_id(v));
+  caps = pcl_get_model_capabilities(v);
 
   stp_default_media_size(v, &width, &height);
 
@@ -2299,16 +2449,16 @@ internal_imageable_area(const stp_vars_t *v,     /* I */
   if (!media_size)
     media_size = "";
   if (strlen(media_size) == 0 &&
-      ((pp = stp_get_papersize_by_size(stp_get_page_height(v),
-				       stp_get_page_width(v))) != NULL))
+      ((pp = stpi_get_papersize_by_size(papersize_list, stp_get_page_height(v),
+					stp_get_page_width(v))) != NULL))
     media_size = pp->name;
 
-  stp_deprintf(STP_DBG_PCL, "pcl_imageable_area(): media_size: '%s'\n",
+  stp_dprintf(STP_DBG_PCL, v, "pcl_imageable_area(): media_size: '%s'\n",
 	       media_size);
 
-  pcl_media_size = pcl_convert_media_size(media_size, stp_get_model_id(v));
+  pcl_media_size = pcl_convert_media_size(v, media_size);
   if (media_size)
-    pp = stp_get_papersize_by_name(media_size);
+    pp = stp_describe_papersize(v, media_size);
   if (pp && use_paper_margins)
     {
       left_margin = pp->left;
@@ -2339,22 +2489,22 @@ internal_imageable_area(const stp_vars_t *v,     /* I */
 
 static void
 pcl_imageable_area(const stp_vars_t *v,     /* I */
-                   int  *left,		/* O - Left position in points */
-                   int  *right,		/* O - Right position in points */
-                   int  *bottom,	/* O - Bottom position in points */
-                   int  *top)		/* O - Top position in points */
+                   stp_dimension_t  *left,		/* O - Left position in points */
+                   stp_dimension_t  *right,		/* O - Right position in points */
+                   stp_dimension_t  *bottom,	/* O - Bottom position in points */
+                   stp_dimension_t  *top)		/* O - Top position in points */
 {
   internal_imageable_area(v, 1, left, right, bottom, top);
 }
 
 static void
 pcl_limit(const stp_vars_t *v,  		/* I */
-	  int *width,
-	  int *height,
-	  int *min_width,
-	  int *min_height)
+	  stp_dimension_t *width,
+	  stp_dimension_t *height,
+	  stp_dimension_t *min_width,
+	  stp_dimension_t *min_height)
 {
-  const pcl_cap_t *caps= pcl_get_model_capabilities(stp_get_model_id(v));
+  const pcl_cap_t *caps= pcl_get_model_capabilities(v);
   *width =	caps->custom_max_width;
   *height =	caps->custom_max_height;
   *min_width =	caps->custom_min_width;
@@ -2365,10 +2515,9 @@ static const char *
 pcl_describe_output(const stp_vars_t *v)
 {
   int printing_color = 0;
-  int model = stp_get_model_id(v);
-  const pcl_cap_t *caps = pcl_get_model_capabilities(model);
+  const pcl_cap_t *caps = pcl_get_model_capabilities(v);
   const char *print_mode = stp_get_string_parameter(v, "PrintingMode");
-  int xdpi, ydpi;
+  stp_resolution_t xdpi, ydpi;
 
   pcl_describe_resolution(v, &xdpi, &ydpi);
   if (!print_mode || strcmp(print_mode, "Color") == 0)
@@ -2378,13 +2527,25 @@ pcl_describe_output(const stp_vars_t *v)
     printing_color = 0;
   if (printing_color)
     {
-      if ((caps->color_type & PCL_COLOR_CMY) == PCL_COLOR_CMY)
+      if ((caps->color_type & PCL_COLOR_RGB) == PCL_COLOR_RGB)
+	return "RGB";
+      else if ((caps->color_type & PCL_COLOR_CMY) == PCL_COLOR_CMY)
 	return "CMY";
       else
 	return "CMYK";
     }
   else
     return "Grayscale";
+}
+
+static const stp_papersize_t *
+pcl_describe_papersize(const stp_vars_t *v, const char *name)
+{
+  const pcl_cap_t *caps= pcl_get_model_capabilities(v);
+  if (caps->stp_printer_type & PCL_PRINTER_LABEL)
+    return stpi_get_listed_papersize(name, "labels");
+  else
+    return stpi_get_listed_papersize(name, "standard");
 }
 
 /*
@@ -2425,7 +2586,7 @@ pcl_printfunc(stp_vars_t *v)
 	  if (pd->blank_lines > 1)		/* Output accumulated lines */
 	    {
 	      pd->blank_lines--;		/* correct for one already output */
-	      stp_deprintf(STP_DBG_PCL, "Blank Lines = %d\n", pd->blank_lines);
+	      stp_dprintf(STP_DBG_PCL, v, "Blank Lines = %d\n", pd->blank_lines);
 	      stp_zprintf(v, "\033*b%dY", pd->blank_lines);
 	      pd->blank_lines=0;
 	    }
@@ -2513,12 +2674,53 @@ get_double_param(stp_vars_t *v, const char *param)
     return 1.0;
 }
 
+static void
+initialize_lj_color(stp_vars_t *v)
+{
+  /* Magic initialization sequence */
+  stp_zprintf(v, "\033*v6W%c%c%c%c%c%c", 0, 3, 8, 8, 8, 8); /* RTL config */
+  stp_puts("\033*t3J", v);			      /* Render alg (best) */
+  stp_zprintf(v, "\033*o3W%c%c%c", 6, 4, 6);	      /* Driver config */
+  stp_puts("\033*v255A", v);     /* Color comp 1) */
+  stp_puts("\033*v255B", v);     /* Color comp 2) */
+  stp_puts("\033*v255C", v);     /* Color comp 3) */
+  stp_puts("\033*v0I", v);	 /* Assign color idx 0 (white)*/
+  stp_puts("\033*v255A", v);     /* Color comp 1) */
+  stp_puts("\033*v0B", v);	 /* Color comp 2) */
+  stp_puts("\033*v0C", v);	 /* Color comp 3) */
+  stp_puts("\033*v6I", v);	 /* Assign color idx 1 (red) */
+  stp_puts("\033*v0A", v);	 /* Color comp 1) */
+  stp_puts("\033*v255B", v);     /* Color comp 2) */
+  stp_puts("\033*v0C", v);	 /* Color comp 3) */
+  stp_puts("\033*v5I", v);	 /* Assign color idx 5 (green) */
+  stp_puts("\033*v0A", v);	 /* Color comp 1) */
+  stp_puts("\033*v0B", v);	 /* Color comp 2) */
+  stp_puts("\033*v255C", v);     /* Color comp 3) */
+  stp_puts("\033*v4I", v);	 /* Assign color idx 4 (blue) */
+  stp_puts("\033*v255A", v);     /* Color comp 1) */
+  stp_puts("\033*v255B", v);     /* Color comp 2) */
+  stp_puts("\033*v0C", v);	 /* Color comp 3) */
+  stp_puts("\033*v3I", v);	 /* Assign color idx 3 (yellow) */
+  stp_puts("\033*v255A", v);     /* Color comp 1) */
+  stp_puts("\033*v0B", v);	 /* Color comp 2) */
+  stp_puts("\033*v255C", v);     /* Color comp 3) */
+  stp_puts("\033*v2I", v);	 /* Assign color idx 2 (green)*/
+  stp_puts("\033*v0A", v);	 /* Color comp 1) */
+  stp_puts("\033*v255B", v);     /* Color comp 2) */
+  stp_puts("\033*v255C", v);     /* Color comp 3) */
+  stp_puts("\033*v1I", v);	 /* Assign color idx 1 (magenta) */
+  stp_puts("\033*v0A", v);	 /* Color comp 1) */
+  stp_puts("\033*v0B", v);	 /* Color comp 2) */
+  stp_puts("\033*v0C", v);	 /* Color comp 3) */
+  stp_puts("\033*v7I", v);	 /* Assign color idx (black) */
+  stp_puts("\033*v7S", v);	 /* Set Foreground Color (black) */
+}
+
 static int
 pcl_do_print(stp_vars_t *v, stp_image_t *image)
 {
   pcl_privdata_t privdata;
   int		status = 1;
-  int		model = stp_get_model_id(v);
   const char	*media_size = stp_get_string_parameter(v, "PageSize");
   const char	*media_type = stp_get_string_parameter(v, "MediaType");
   const char	*media_source = stp_get_string_parameter(v, "InputSlot");
@@ -2531,21 +2733,21 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
   double        v_offset = get_double_param(v, "VertOffset");
   int		page_number = stp_get_int_parameter(v, "PageNumber");
   int		printing_color = 0;
-  int		top = stp_get_top(v);
-  int		left = stp_get_left(v);
+  int		top = (int) stp_get_top(v) + .5;
+  int		left = (int) stp_get_left(v) + .5;
   int		y;		/* Looping vars */
-  int		xdpi, ydpi;	/* Resolution */
+  stp_resolution_t	xdpi, ydpi;	/* Resolution */
   unsigned char *black,		/* Black bitmap data */
 		*cyan,		/* Cyan bitmap data */
 		*magenta,	/* Magenta bitmap data */
 		*yellow,	/* Yellow bitmap data */
 		*lcyan,		/* Light Cyan bitmap data */
 		*lmagenta;	/* Light Magenta bitmap data */
-  int		page_left,
-		page_top,
-		page_right,
-		page_bottom,
-		out_width,	/* Width of image on page */
+  stp_dimension_t	page_left,
+			page_top,
+			page_right,
+			page_bottom;
+  int		out_width,	/* Width of image on page */
 		out_height,	/* Height of image on page */
 		errdiv,		/* Error dividend */
 		errmod,		/* Error modulus */
@@ -2554,6 +2756,7 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
 		errlast;	/* Last raster line loaded */
   unsigned	zero_mask;
   int           image_height;
+  int           image_width;
   const pcl_cap_t *caps;		/* Printer capabilities */
   int		planes = 3;	/* # of output planes */
   int		pcl_media_size; /* PCL media size code */
@@ -2565,6 +2768,7 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
   int		extra_left_margin = 0;
   double        density;
   int           label = 0;
+  const stp_papersize_list_t *paper_sizes = stpi_get_standard_papersize_list();
 
   if (!stp_verify(v))
     {
@@ -2574,7 +2778,9 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
   if (strcmp(print_mode, "Color") == 0)
     printing_color = 1;
 
-  caps = pcl_get_model_capabilities(model);
+  (void) memset(&privdata, 0, sizeof(privdata));
+
+  caps = pcl_get_model_capabilities(v);
 
  /*
   * Setup a read-only pixel region for the entire image...
@@ -2589,13 +2795,16 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
 
   pcl_describe_resolution(v, &xdpi, &ydpi);
 
-  stp_deprintf(STP_DBG_PCL,"pcl: resolution=%dx%d\n",xdpi,ydpi);
+  stp_dprintf(STP_DBG_PCL, v,"pcl: resolution=%dx%d\n",(int)xdpi,(int)ydpi);
   if (xdpi <= 0 || ydpi <= 0)
     {
       stp_eprintf(v, "No resolution found; cannot print.\n");
       return 0;
     }
 
+  if (printing_color && (caps->stp_printer_type & PCL_PRINTER_LJ_COLOR)) {
+    privdata.nodither = 1;
+  }
  /*
   * Choose the correct color conversion function...
   */
@@ -2619,22 +2828,22 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
     dot_sizes_use=dot_sizes;
   }
 
-  stp_deprintf(STP_DBG_PCL, "privdata.do_cret = %d\n", privdata.do_cret);
-  stp_deprintf(STP_DBG_PCL, "privdata.do_cretb = %d\n", privdata.do_cretb);
+  stp_dprintf(STP_DBG_PCL, v, "privdata.do_cret = %d\n", privdata.do_cret);
+  stp_dprintf(STP_DBG_PCL, v, "privdata.do_cretb = %d\n", privdata.do_cretb);
 
   if (ink_type && printing_color)
     privdata.do_6color = (strcmp(ink_type, "Photo") == 0);
   else
     privdata.do_6color = 0;
 
-  stp_deprintf(STP_DBG_PCL, "privdata.do_6color = %d\n", privdata.do_6color);
+  stp_dprintf(STP_DBG_PCL, v, "privdata.do_6color = %d\n", privdata.do_6color);
 
  /*
   * Compute the output size...
   */
 
-  out_width = stp_get_width(v);
-  out_height = stp_get_height(v);
+  out_width = (int) stp_get_width(v) + .5;
+  out_height = (int) stp_get_height(v) + .5;
 
   internal_imageable_area(v, 0, &page_left, &page_right,
 			  &page_bottom, &page_top);
@@ -2642,6 +2851,7 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
   top -= page_top;
 
   image_height = stp_image_height(image);
+  image_width = stp_image_width(image);
 
  /*
   * Set media size here because it is needed by the margin calculation code.
@@ -2650,13 +2860,13 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
   if (!media_size)
     media_size = "";
   if (strlen(media_size) == 0 &&
-      ((pp = stp_get_papersize_by_size(stp_get_page_height(v),
-				       stp_get_page_width(v))) != NULL))
+      ((pp = stpi_get_papersize_by_size(paper_sizes, stp_get_page_height(v),
+					stp_get_page_width(v))) != NULL))
     media_size = pp->name;
 
-  pcl_media_size = pcl_convert_media_size(media_size, model);
+  pcl_media_size = pcl_convert_media_size(v, media_size);
 
-  stp_deprintf(STP_DBG_PCL,"pcl_media_size = %d, media_size = %s\n", pcl_media_size, media_size);
+  stp_dprintf(STP_DBG_PCL, v,"pcl_media_size = %d, media_size = %s\n", pcl_media_size, media_size);
 
  /*
   * If the media size requested is unknown, try it as a custom size.
@@ -2665,15 +2875,16 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
   */
 
   if (pcl_media_size == -1) {
-    stp_deprintf(STP_DBG_PCL, "Paper size %s is not directly supported by printer.\n",
+    stp_dprintf(STP_DBG_PCL, v, "Paper size %s is not directly supported by printer.\n",
       media_size);
-    stp_deprintf(STP_DBG_PCL, "Trying as custom pagesize (watch the margins!)\n");
+    stp_dprintf(STP_DBG_PCL, v, "Trying as custom pagesize (watch the margins!)\n");
     pcl_media_size = PCL_PAPERSIZE_CUSTOM;			/* Custom */
   }
 
-  stp_deprintf(STP_DBG_PCL, "Duplex: %s, Page_Number: %d\n", duplex_mode, page_number);
+  stp_dprintf(STP_DBG_PCL, v, "Duplex: %s, Page_Number: %d\n", duplex_mode, page_number);
   privdata.duplex=0;
   privdata.tumble=0;
+  privdata.copies=1;
 
  /*
   * Duplex
@@ -2689,6 +2900,15 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
             privdata.tumble=1;
         }
     }
+
+  /*
+   * Multiple copies!
+   */
+
+  if (stp_check_boolean_parameter(v, "NativeCopies", STP_PARAMETER_ACTIVE) &&
+      stp_get_boolean_parameter(v, "NativeCopies") &&
+      stp_check_int_parameter(v, "NumCopies", STP_PARAMETER_ACTIVE))
+    privdata.copies = stp_get_int_parameter(v, "NumCopies");
 
  /*
   * Label (PJL) settings and Orientation
@@ -2748,7 +2968,7 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
       int pcl_media_type,	/* PCL media type code */
           pcl_media_source;	/* PCL media source code */
 
-      stp_deprintf(STP_DBG_PCL, "Normal init\n");
+      stp_dprintf(STP_DBG_PCL, v, "Normal init\n");
 
       if (label)
       {
@@ -2770,7 +2990,7 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
                        "@PJL SET PAPERLENGTH=%d\n"
                        "@PJL SET VERTICALOFFSET=%d\n"
                        "@PJL SET HORIZONTALOFFSET=%d\n"
-                       "@PJL ENTER LANGUAGE=PCL\n", xdpi, out_width*10,
+                       "@PJL ENTER LANGUAGE=PCL\n", (int) xdpi, out_width*10,
                        out_height*10, privdata.v_offset, privdata.h_offset);
 
 	if ( privdata.label_separator != 0) {
@@ -2800,7 +3020,7 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
         stp_zprintf(v, "\033&l%dA", pcl_media_size);	/* Set media size we calculated above */
       }
 
-      stp_zprintf(v, "\033&l%dP", stp_get_page_height(v) / 12);
+      stp_zprintf(v, "\033&l%dP", ((int) stp_get_page_height(v)) / 12);
 						/* Length of "forms" in "lines" */
       stp_puts("\033&l0L", v);			/* Turn off perforation skip */
       if (! label) {
@@ -2812,14 +3032,14 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
   */
 
       if (media_source && strlen(media_source) != 0) {
-        pcl_media_source = pcl_string_to_val(media_source, pcl_media_sources,
+        pcl_media_source = pcl_string_to_val(v, media_source, pcl_media_sources,
                              sizeof(pcl_media_sources) / sizeof(pcl_t));
 
-        stp_deprintf(STP_DBG_PCL,"pcl_media_source = %d, media_source = %s\n", pcl_media_source,
+        stp_dprintf(STP_DBG_PCL, v,"pcl_media_source = %d, media_source = %s\n", pcl_media_source,
                media_source);
 
         if (pcl_media_source == -1)
-          stp_deprintf(STP_DBG_PCL, "Unknown media source %s, ignored.\n", media_source);
+          stp_dprintf(STP_DBG_PCL, v, "Unknown media source %s, ignored.\n", media_source);
         else if (pcl_media_source != PCL_PAPERSOURCE_STANDARD) {
 
 /* Correct the value by taking the modulus */
@@ -2828,7 +3048,7 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
 	      PAPERSOURCE_ADJ_GUIDE)
 	    {
 	      manual_feed_left_adjust = 1;
-	      stp_deprintf(STP_DBG_PCL, "Adjusting left margin for manual feed.\n");
+	      stp_dprintf(STP_DBG_PCL, v, "Adjusting left margin for manual feed.\n");
 	    }
           pcl_media_source = pcl_media_source % PAPERSOURCE_MOD;
           stp_zprintf(v, "\033&l%dH", pcl_media_source);
@@ -2840,14 +3060,14 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
   */
 
       if (media_type && strlen(media_type) != 0) {
-        pcl_media_type = pcl_string_to_val(media_type, pcl_media_types,
+        pcl_media_type = pcl_string_to_val(v, media_type, pcl_media_types,
                            sizeof(pcl_media_types) / sizeof(pcl_t));
 
-        stp_deprintf(STP_DBG_PCL,"pcl_media_type = %d, media_type = %s\n", pcl_media_type,
+        stp_dprintf(STP_DBG_PCL, v,"pcl_media_type = %d, media_type = %s\n", pcl_media_type,
                media_type);
 
         if (pcl_media_type == -1) {
-          stp_deprintf(STP_DBG_PCL, "Unknown media type %s, set to PLAIN.\n", media_type);
+          stp_dprintf(STP_DBG_PCL, v, "Unknown media type %s, set to PLAIN.\n", media_type);
           pcl_media_type = PCL_PAPERTYPE_PLAIN;
         }
 
@@ -2858,7 +3078,7 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
  */
 
         if (privdata.do_cretb && pcl_media_type == PCL_PAPERTYPE_GLOSSY) {
-          stp_deprintf(STP_DBG_PCL, "Media type GLOSSY, set to PREMIUM for PhotoRET II.\n");
+          stp_dprintf(STP_DBG_PCL, v, "Media type GLOSSY, set to PREMIUM for PhotoRET II.\n");
           pcl_media_type = PCL_PAPERTYPE_PREMIUM;
         }
       }
@@ -2869,7 +3089,9 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
   * Set DJ print quality to "best" if resolution >= 300
   */
 
-      if ((xdpi >= 300) && ((caps->stp_printer_type & PCL_PRINTER_DJ) == PCL_PRINTER_DJ))
+      if (caps->stp_printer_type & PCL_PRINTER_LJ_COLOR)
+	stp_zprintf(v, "\033&l%dM", pcl_media_type);
+      else if ((xdpi >= 300) && ((caps->stp_printer_type & PCL_PRINTER_DJ) == PCL_PRINTER_DJ))
       {
         if ((caps->stp_printer_type & PCL_PRINTER_MEDIATYPE) == PCL_PRINTER_MEDIATYPE)
         {
@@ -2898,16 +3120,19 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
         }
       }
 
+      /* Number of copies */
+      if (privdata.copies > 1)
+        stp_zprintf(v,"\033&l%dX", privdata.copies);
+
 /*
  * Duplex
  */
-
       if (privdata.duplex)
           stp_zprintf(v,"\033&l%dS", privdata.duplex + privdata.tumble);
       }
     else
       {
-        stp_deprintf(STP_DBG_PCL, "Back face init\n");
+        stp_dprintf(STP_DBG_PCL, v, "Back face init\n");
         stp_puts("\033&a2G", v);
       }
 
@@ -2947,7 +3172,7 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
     */
 
     if (printing_color)
-      if ((caps->color_type & PCL_COLOR_CMY) == PCL_COLOR_CMY)
+      if (caps->color_type & (PCL_COLOR_CMY | PCL_COLOR_RGB))
         planes = 3;
       else
         if (privdata.do_6color)
@@ -2978,8 +3203,8 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
   }
   else
   {
-    stp_zprintf(v, "\033*t%dR", xdpi);		/* Simple resolution */
-    if (printing_color)
+    stp_zprintf(v, "\033*t%dR", (int) xdpi);		/* Simple resolution */
+    if (printing_color && ! (caps->stp_printer_type & PCL_PRINTER_LJ_COLOR))
     {
       if ((caps->color_type & PCL_COLOR_CMY) == PCL_COLOR_CMY)
         stp_puts("\033*r-3U", v);		/* Simple CMY color */
@@ -3016,7 +3241,7 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
     the_top_margin = caps->normal_margins.top_margin;
   }
 
-  stp_deprintf(STP_DBG_PCL, "left %d margin %d top %d margin %d width %d height %d\n",
+  stp_dprintf(STP_DBG_PCL, v, "left %d margin %d top %d margin %d width %d height %d\n",
 	  left, the_left_margin, top, the_top_margin, out_width, out_height);
 
   if (manual_feed_left_adjust)
@@ -3031,7 +3256,7 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
 	   * of the difference between the maximum width and the actual
 	   * width experimentally yields correct results -- rlk 20081014
 	   */
-	  stp_deprintf(STP_DBG_PCL,
+	  stp_dprintf(STP_DBG_PCL, v,
 		       "  Adjusting manual feed left margin by %d\n", wdelta / 3);
 	  extra_left_margin += wdelta / 3;
 	}
@@ -3044,6 +3269,12 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
   }
   stp_zprintf(v, "\033*r%dS", out_width);		/* Set raster width */
   stp_zprintf(v, "\033*r%dT", out_height);	/* Set raster height */
+
+  if (printing_color && caps->stp_printer_type & PCL_PRINTER_LJ_COLOR)
+    {
+      privdata.row_buf = stp_malloc(out_width * out_height);
+      initialize_lj_color(v);
+    }
 
   if (privdata.do_cretb)
     {
@@ -3060,6 +3291,8 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
   privdata.height = (out_width + 7) / 8;
   if (privdata.do_cret)
     privdata.height *= 2;
+  else if (printing_color && caps->stp_printer_type & PCL_PRINTER_LJ_COLOR)
+    privdata.height = out_width * 3;
 
   if (!printing_color)
   {
@@ -3076,7 +3309,7 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
     magenta = stp_malloc(privdata.height);
     yellow  = stp_malloc(privdata.height);
 
-    if ((caps->color_type & PCL_COLOR_CMY) == PCL_COLOR_CMY)
+    if (caps->color_type & (PCL_COLOR_CMY | PCL_COLOR_RGB))
       black = NULL;
     else
       black = stp_malloc(privdata.height);
@@ -3099,6 +3332,8 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
       else
 	stp_set_string_parameter(v, "STPIOutputType", "Grayscale");
     }
+  else if (caps->color_type & PCL_COLOR_RGB)
+    stp_set_string_parameter(v, "STPIOutputType", "RGB");
   else
     stp_set_string_parameter(v, "STPIOutputType", "CMY");
 
@@ -3126,21 +3361,37 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
 #endif
   stp_dither_init(v, image, out_width, xdpi, ydpi);
 
-  if (black)
+  if (privdata.nodither)
     {
-      stp_dither_add_channel(v, black, STP_ECOLOR_K, 0);
-      stp_channel_set_black_channel(v, STP_ECOLOR_K);
+      int i = 0;
+      stp_channel_reset(v);
+      if (black)
+	stp_channel_add(v, i++, 0, 1.0);
+      if (cyan)
+	stp_channel_add(v, i++, 0, 1.0);
+      if (magenta)
+	stp_channel_add(v, i++, 0, 1.0);
+      if (yellow)
+	stp_channel_add(v, i++, 0, 1.0);
     }
-  if (cyan)
-    stp_dither_add_channel(v, cyan, STP_ECOLOR_C, 0);
-  if (lcyan)
-    stp_dither_add_channel(v, lcyan, STP_ECOLOR_C, 1);
-  if (magenta)
-    stp_dither_add_channel(v, magenta, STP_ECOLOR_M, 0);
-  if (lmagenta)
-    stp_dither_add_channel(v, lmagenta, STP_ECOLOR_M, 1);
-  if (yellow)
-    stp_dither_add_channel(v, yellow, STP_ECOLOR_Y, 0);
+  else
+    {
+      if (black)
+	{
+	  stp_dither_add_channel(v, black, STP_ECOLOR_K, 0);
+	  stp_channel_set_black_channel(v, STP_ECOLOR_K);
+	}
+      if (cyan)
+	stp_dither_add_channel(v, cyan, STP_ECOLOR_C, 0);
+      if (lcyan)
+	stp_dither_add_channel(v, lcyan, STP_ECOLOR_C, 1);
+      if (magenta)
+	stp_dither_add_channel(v, magenta, STP_ECOLOR_M, 0);
+      if (lmagenta)
+	stp_dither_add_channel(v, lmagenta, STP_ECOLOR_M, 1);
+      if (yellow)
+	stp_dither_add_channel(v, yellow, STP_ECOLOR_Y, 0);
+    }
 
 /* Ensure that density does not exceed 1.0 */
 
@@ -3150,7 +3401,7 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
       stp_set_float_parameter(v, "Density", 1.0);
     }
 
-  stp_deprintf(STP_DBG_PCL, "Density: %f\n", stp_get_float_parameter(v, "Density"));
+  stp_dprintf(STP_DBG_PCL, v, "Density: %f\n", stp_get_float_parameter(v, "Density"));
   if (stp_get_float_parameter(v, "Density") > 1.0)
     stp_set_float_parameter(v, "Density", 1.0);
   density = stp_get_float_parameter(v, "Density");
@@ -3219,36 +3470,45 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
 			density));
 
 
-  if (!stp_check_curve_parameter(v, "HueMap", STP_PARAMETER_ACTIVE))
+  if (!(caps->color_type & PCL_COLOR_RGB))
     {
-      stp_curve_t *hue_adjustment = 
-	stp_curve_create_from_string(standard_hue_adjustment);
-      stp_set_curve_parameter(v, "HueMap", hue_adjustment);
-      stp_curve_destroy(hue_adjustment);
-    }
-  if (!stp_check_curve_parameter(v, "LumMap", STP_PARAMETER_ACTIVE))
-    {
-      stp_curve_t *lum_adjustment = 
-	stp_curve_create_from_string(standard_lum_adjustment);
+      if (!stp_check_curve_parameter(v, "HueMap", STP_PARAMETER_ACTIVE))
+	{
+	  stp_curve_t *hue_adjustment =
+	    stp_curve_create_from_string(standard_hue_adjustment);
+	  stp_set_curve_parameter(v, "HueMap", hue_adjustment);
+	  stp_curve_destroy(hue_adjustment);
+	}
+      if (!stp_check_curve_parameter(v, "LumMap", STP_PARAMETER_ACTIVE))
+	{
+	  stp_curve_t *lum_adjustment =
+	    stp_curve_create_from_string(standard_lum_adjustment);
 #if 0
-      /*
-       * This would represent a change to the PCL driver in 5.2.12
-       *
-       * This call was missing and has represented a bug (if a clearly
-       * non-fatal one) in the PCL driver since time immemorial.  The
-       * non-use of the variable was finally called out by gcc6.  In my
-       * judgment, fixing the bug and changing the output of many PCL
-       * printers (even if it were for the better) would be more problematic
-       * than leaving the output as-is.
-       *
-       * - Robert Krawitz 2016-12-29
-       */
-      stp_set_curve_parameter(v, "LumMap", lum_adjustment);
+	  /*
+	   * This would represent a change to the PCL driver in 5.2.12
+	   *
+	   * This call was missing and has represented a bug (if a clearly
+	   * non-fatal one) in the PCL driver since time immemorial.  The
+	   * non-use of the variable was finally called out by gcc6.  In my
+	   * judgment, fixing the bug and changing the output of many PCL
+	   * printers (even if it were for the better) would be more problematic
+	   * than leaving the output as-is.
+	   *
+	   * - Robert Krawitz 2016-12-29
+	   */
+	  stp_set_curve_parameter(v, "LumMap", lum_adjustment);
 #endif
-      stp_curve_destroy(lum_adjustment);
+	  stp_curve_destroy(lum_adjustment);
+	}
     }
 
-  (void) stp_color_init(v, image, 65536);
+  if (printing_color && (caps->stp_printer_type & PCL_PRINTER_LJ_COLOR))
+    {
+      stp_set_float_parameter(v, "AppGammaScale", 1.0);
+      (void) stp_color_init(v, image, 256);
+    }
+  else
+    (void) stp_color_init(v, image, 65536);
 
   errdiv  = image_height / out_height;
   errmod  = image_height % out_height;
@@ -3277,9 +3537,51 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
 	  break;
 	}
     }
-    stp_dither(v, y, duplicate_line, zero_mask, NULL);
-    pcl_printfunc(v);
-    stp_deprintf(STP_DBG_PCL,"pcl_print: y = %d, line = %d, val = %d, mod = %d, height = %d\n",
+    if (privdata.nodither)
+      {
+	if (! duplicate_line)
+	  {
+	    unsigned row_errdiv = image_width / out_width;
+	    unsigned row_errmod = image_width % out_width;
+	    unsigned row_errval = 0;
+	    unsigned row_errlast = -1;
+	    unsigned row_errcol = 0;
+	    unsigned short *output = stp_channel_get_output(v);
+	    unsigned char *optr = privdata.row_buf;
+	    int x;
+	    for (x = 0; x < out_width; x++)
+	      {
+		if (row_errcol != row_errlast)
+		  {
+		    row_errlast = row_errcol;
+		    optr[0] = output[(row_errcol * 3) + 0] / (unsigned short) 257;
+		    optr[1] = output[(row_errcol * 3) + 1] / (unsigned short) 257;
+		    optr[2] = output[(row_errcol * 3) + 2] / (unsigned short) 257;
+		  }
+		else
+		  {
+		    optr[0] = optr[-3];
+		    optr[1] = optr[-2];
+		    optr[2] = optr[-1];
+		  }
+		optr += 3;
+		row_errval += row_errmod;
+		row_errcol += row_errdiv;
+		if (row_errval >= out_width)
+		  {
+		    row_errval -= out_width;
+		    row_errcol++;
+		  }
+	      }
+	  }
+	(*(privdata.writefunc))(v, privdata.row_buf, privdata.height, 1);
+      }
+    else
+      {
+	stp_dither(v, y, duplicate_line, zero_mask, NULL);
+	pcl_printfunc(v);
+      }
+    stp_dprintf(STP_DBG_PCL, v,"pcl_print: y = %d, line = %d, val = %d, mod = %d, height = %d\n",
 		  y, errline, errval, errmod, out_height);
     errval += errmod;
     errline += errdiv;
@@ -3295,7 +3597,7 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
   if (privdata.blank_lines > 1)
   {
     privdata.blank_lines--;		/* correct for one already output */
-    stp_deprintf(STP_DBG_PCL, "Blank Lines = %d\n", privdata.blank_lines);
+    stp_dprintf(STP_DBG_PCL, v, "Blank Lines = %d\n", privdata.blank_lines);
     stp_zprintf(v, "\033*b%dY", privdata.blank_lines);
     privdata.blank_lines=0;
   }
@@ -3322,6 +3624,8 @@ pcl_do_print(stp_vars_t *v, stp_image_t *image)
 
   if (privdata.comp_buf != NULL)
     stp_free(privdata.comp_buf);
+  if (privdata.row_buf != NULL)
+    stp_free(privdata.row_buf);
 
   if ((caps->stp_printer_type & PCL_PRINTER_NEW_ERG) == PCL_PRINTER_NEW_ERG)
     stp_puts("\033*rC", v);
@@ -3345,7 +3649,6 @@ pcl_print(const stp_vars_t *v, stp_image_t *image)
 {
   int status;
   stp_vars_t *nv = stp_vars_create_copy(v);
-  stp_prune_inactive_options(nv);
   status = pcl_do_print(nv, image);
   stp_vars_destroy(nv);
   return status;
@@ -3365,7 +3668,8 @@ static const stp_printfuncs_t print_pcl_printfuncs =
   stp_verify_printer_params,
   NULL,
   NULL,
-  NULL
+  NULL,
+  pcl_describe_papersize
 };
 
 
@@ -3420,14 +3724,14 @@ static stp_family_t print_pcl_module_data =
 static int
 print_pcl_module_init(void)
 {
-  return stp_family_register(print_pcl_module_data.printer_list);
+  return stpi_family_register(print_pcl_module_data.printer_list);
 }
 
 
 static int
 print_pcl_module_exit(void)
 {
-  return stp_family_unregister(print_pcl_module_data.printer_list);
+  return stpi_family_unregister(print_pcl_module_data.printer_list);
 }
 
 

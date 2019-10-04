@@ -16,8 +16,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 /*
@@ -47,6 +46,11 @@
 #include "generic-options.h"
 
 #define FMIN(a, b) ((a) < (b) ? (a) : (b))
+
+static stp_outfunc_t global_errfunc;
+static void *global_errdata;
+static stp_outfunc_t global_dbgfunc;
+static void *global_dbgdata;
 
 typedef struct
 {
@@ -283,14 +287,68 @@ stp_send_command(const stp_vars_t *v, const char *command,
 }
 
 void
+stp_set_global_errfunc(stp_outfunc_t val)
+{
+  global_errfunc = val;
+}
+
+stp_outfunc_t
+stp_get_global_errfunc(void)
+{
+  return global_errfunc;
+}
+
+void
+stp_set_global_errdata(void *val)
+{
+  global_errdata = val;
+}
+
+void *
+stp_get_global_errdata(void)
+{
+  return global_errdata;
+}
+
+void
+stp_set_global_dbgfunc(stp_outfunc_t val)
+{
+  global_dbgfunc = val;
+}
+
+stp_outfunc_t
+stp_get_global_dbgfunc(void)
+{
+  return global_dbgfunc;
+}
+
+void
+stp_set_global_dbgdata(void *val)
+{
+  global_dbgdata = val;
+}
+
+void *
+stp_get_global_dbgdata(void)
+{
+  return global_dbgdata;
+}
+
+void
 stp_eprintf(const stp_vars_t *v, const char *format, ...)
 {
   int bytes;
-  if (stp_get_errfunc(v))
+  stp_outfunc_t errfunc = stp_get_errfunc(v);
+  if (! errfunc)
+    errfunc = global_errfunc;
+  void * errdata = stp_get_errdata(v);
+  if (! errdata)
+    errdata = global_errdata;
+  if (errfunc)
     {
       char *result;
       STPI_VASPRINTF(result, bytes, format);
-      (stp_get_errfunc(v))((void *)(stp_get_errdata(v)), result, bytes);
+      errfunc(errdata, result, bytes);
       stp_free(result);
     }
   else
@@ -305,16 +363,34 @@ stp_eprintf(const stp_vars_t *v, const char *format, ...)
 void
 stp_erputc(int ch)
 {
-  putc(ch, stderr);
+  if (global_errfunc)
+    {
+      char c[1];
+      c[0] = (char) ch;
+      global_errfunc(global_errdata, c, 1);
+    }
+  else
+    putc(ch, stderr);
 }
 
 void
 stp_erprintf(const char *format, ...)
 {
-  va_list args;
-  va_start(args, format);
-  vfprintf(stderr, format, args);
-  va_end(args);
+  if (global_errfunc)
+    {
+      int bytes;
+      char *result;
+      STPI_VASPRINTF(result, bytes, format);
+      global_errfunc(global_errdata, result, bytes);
+      stp_free(result);
+    }
+  else
+    {
+      va_list args;
+      va_start(args, format);
+      vfprintf(stderr, format, args);
+      va_end(args);
+    }
 }
 
 static unsigned long stpi_debug_level = 0;
@@ -345,17 +421,33 @@ stp_get_debug_level(void)
 void
 stp_dprintf(unsigned long level, const stp_vars_t *v, const char *format, ...)
 {
-  int bytes;
   stpi_init_debug();
   if (level & stpi_debug_level)
     {
-      if (stp_get_errfunc(v))
+      stp_outfunc_t dbgfunc = stp_get_dbgfunc(v);
+      if (! dbgfunc)
+	dbgfunc = global_dbgfunc;
+      if (! dbgfunc)
+	dbgfunc = stp_get_errfunc(v);
+      if (! dbgfunc)
+	dbgfunc = global_errfunc;
+      void *dbgdata = stp_get_dbgdata(v);
+      if (! dbgdata)
+	dbgdata = global_dbgdata;
+      if (! dbgdata)
+	dbgdata = stp_get_errdata(v);
+      if (! dbgdata)
+	dbgdata = global_errdata;
+      if (dbgfunc)
 	{
+	  int bytes;
 	  char *result;
 	  STPI_VASPRINTF(result, bytes, format);
-	  (stp_get_errfunc(v))((void *)(stp_get_errdata(v)), result, bytes);
+	  dbgfunc(dbgdata, result, bytes);
 	  stp_free(result);
-	} else {
+	}
+      else
+	{
 	  va_list args;
 	  va_start(args, format);
 	  vfprintf(stderr, format, args);
@@ -367,12 +459,25 @@ stp_dprintf(unsigned long level, const stp_vars_t *v, const char *format, ...)
 void
 stp_deprintf(unsigned long level, const char *format, ...)
 {
-  va_list args;
-  va_start(args, format);
   stpi_init_debug();
   if (level & stpi_debug_level)
-    vfprintf(stderr, format, args);
-  va_end(args);
+    {
+      if (global_dbgfunc)
+	{
+	  int bytes;
+	  char *result;
+	  STPI_VASPRINTF(result, bytes, format);
+	  global_dbgfunc(global_dbgdata, result, bytes);
+	  stp_free(result);
+	}
+      else
+	{
+	  va_list args;
+	  va_start(args, format);
+	  vfprintf(stderr, format, args);
+	  va_end(args);
+	}
+    }
 }
 
 static void
@@ -393,12 +498,12 @@ stp_init_debug_messages(stp_vars_t *v)
 {
   int verified_flag = stp_get_verified(v);
   debug_msgbuf_t *msgbuf = stp_malloc(sizeof(debug_msgbuf_t));
-  msgbuf->ofunc = stp_get_errfunc(v);
-  msgbuf->odata = stp_get_errdata(v);
+  msgbuf->ofunc = stp_get_dbgfunc(v);
+  msgbuf->odata = stp_get_dbgdata(v);
   msgbuf->data = NULL;
   msgbuf->bytes = 0;
-  stp_set_errfunc((stp_vars_t *) v, fill_buffer_writefunc);
-  stp_set_errdata((stp_vars_t *) v, msgbuf);
+  stp_set_dbgfunc((stp_vars_t *) v, fill_buffer_writefunc);
+  stp_set_dbgdata((stp_vars_t *) v, msgbuf);
   stp_set_verified((stp_vars_t *) v, verified_flag);
 }
 
@@ -406,13 +511,17 @@ void
 stp_flush_debug_messages(stp_vars_t *v)
 {
   int verified_flag = stp_get_verified(v);
-  debug_msgbuf_t *msgbuf = (debug_msgbuf_t *)stp_get_errdata(v);
-  stp_set_errfunc((stp_vars_t *) v, msgbuf->ofunc);
-  stp_set_errdata((stp_vars_t *) v, msgbuf->odata);
+  debug_msgbuf_t *msgbuf = (debug_msgbuf_t *)stp_get_dbgdata(v);
+  stp_set_dbgfunc((stp_vars_t *) v, msgbuf->ofunc);
+  stp_set_dbgdata((stp_vars_t *) v, msgbuf->odata);
   stp_set_verified((stp_vars_t *) v, verified_flag);
   if (msgbuf->bytes > 0)
     {
-      stp_eprintf(v, "%s", msgbuf->data);
+      /*
+       * Messages aren't tagged by debug value, so we force them
+       * out if any debug flag is set.
+       */
+      stp_dprintf((unsigned long) -1, v, "%s", msgbuf->data);
       stp_free(msgbuf->data);
     }
   stp_free(msgbuf);
@@ -485,7 +594,6 @@ stp_init(void)
       stpi_init_debug();
       stp_xml_preinit();
       stpi_init_printer();
-      stpi_init_paper();
       stpi_init_dither();
       /* Load modules */
       if (stp_module_load())
@@ -596,7 +704,7 @@ stp_merge_printvars(stp_vars_t *user, const stp_vars_t *print)
   int i;
   stp_parameter_list_t params = stp_get_parameter_list(print);
   int count = stp_parameter_list_count(params);
-  stp_deprintf(STP_DBG_VARS, "Merging printvars from %s\n",
+  stp_dprintf(STP_DBG_VARS, user, "Merging printvars from %s\n",
 	       stp_get_driver(print));
   for (i = 0; i < count; i++)
     {
@@ -631,7 +739,7 @@ stp_merge_printvars(stp_vars_t *user, const stp_vars_t *print)
 	  stp_parameter_description_destroy(&desc);
 	}
     }
-  stp_deprintf(STP_DBG_VARS, "Exiting merge printvars\n");
+  stp_dprintf(STP_DBG_VARS, user, "Exiting merge printvars\n");
   stp_parameter_list_destroy(params);
 }
 
@@ -665,4 +773,17 @@ stp_abort(void)
       stp_erprintf("Crashing here...%d\n", i);
     }
   abort();
+}
+
+time_t
+stpi_time(time_t *t)
+{
+  if (stp_get_debug_level() & STP_DBG_STATIC_TIME)
+    {
+      if (t)
+	*t = (time_t) 0;
+      return (time_t) 0;
+    }
+  else
+    return time(t);
 }

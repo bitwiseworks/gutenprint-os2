@@ -16,8 +16,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 /**
@@ -51,6 +50,7 @@ extern int stp_xml_parse_file(const char *file);
 extern long stp_xmlstrtol(const char *value);
 extern unsigned long stp_xmlstrtoul(const char *value);
 extern double stp_xmlstrtod(const char *textval);
+extern stp_dimension_t stp_xmlstrtodim(const char *textval);
 extern stp_raw_t *stp_xmlstrtoraw(const char *textval);
 extern char *stp_rawtoxmlstr(const stp_raw_t *raw);
 extern char *stp_strtoxmlstr(const char *raw);
@@ -80,6 +80,26 @@ extern void stp_vars_fill_from_xmltree_ref(stp_mxml_node_t *da,
 extern stp_mxml_node_t *stp_xmltree_create_from_vars(const stp_vars_t *v);
 
 extern void stp_xml_parse_file_named(const char *name);
+extern stp_mxml_node_t *stp_xml_parse_file_from_path(const char *name,
+						     const char *topnodename,
+						     const char *path);
+extern stp_mxml_node_t *stp_xml_parse_file_from_path_uncached(const char *name,
+							      const char *topnodename,
+							      const char *path);
+/*
+ * Abort if we don't find the matching file
+ * It is not necessary to check that the return is not NULL
+ */
+extern stp_mxml_node_t *stp_xml_parse_file_from_path_safe(const char *name,
+							  const char *topnodename,
+							  const char *path);
+extern stp_mxml_node_t *stp_xml_parse_file_from_path_uncached_safe(const char *name,
+								   const char *topnodename,
+								   const char *path);
+
+extern void stp_xml_free_parsed_file(stp_mxml_node_t *node);
+
+extern void stpi_print_xml_node(stp_mxml_node_t *node);
 
 #ifdef __cplusplus
 }

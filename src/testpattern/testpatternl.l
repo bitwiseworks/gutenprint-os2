@@ -15,8 +15,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 %{
@@ -102,6 +101,7 @@ mm			DBG(MM); return MM;
 hsize			DBG(HSIZE); return HSIZE;
 vsize			DBG(VSIZE); return VSIZE;
 blackline		DBG(BLACKLINE); return BLACKLINE;
+colorline		DBG(COLORLINE); return COLORLINE;
 pattern			DBG(PATTERN); return PATTERN;
 xpattern		DBG(XPATTERN); return XPATTERN;
 image			DBG(IMAGE); return IMAGE;
@@ -121,6 +121,7 @@ white			yylval.ival = WHITE;DBG(WHITE); return WHITE;
 output			DBG(OUTPUT); return OUTPUT;
 message			DBG(MESSAGE); return MESSAGE;
 noscale			DBG(NOSCALE); return NOSCALE;
+round			DBG(ROUND); return ROUND;
 start_job		DBG(START_JOB); return START_JOB;
 end_job			DBG(END_JOB); return END_JOB;
 end			DBG(END); return END;

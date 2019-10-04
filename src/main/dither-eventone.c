@@ -15,8 +15,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  *   This code uses the Eventone dither algorithm. This is described
  *   at the website http://www.artofcode.com/eventone/
@@ -643,7 +642,7 @@ stpi_dither_ut(stp_vars_t *v,
 
       if (ddc->b > 65535)
 	ddc->b = 65535;
-    
+
       ddc->v += 2 * ddc->b + (ddc->errs[0][x + MAX_SPREAD] + 8) / 16;
       total_error += eventone_adjust(ddc, et, ddc->v - ddc->b, ddc->b);
       if (total_error >= comparison)
@@ -655,7 +654,7 @@ stpi_dither_ut(stp_vars_t *v,
 	    {
 	      stpi_dither_channel_t *dc = &CHANNEL(d, i);
 	      shade_distance_t *sp = (shade_distance_t *) dc->aux_data;
-      
+
 	      if (dc->ptr)
 		{
 
@@ -683,7 +682,7 @@ stpi_dither_ut(stp_vars_t *v,
 		}
 	    }
 	}
-    
+
       for (i=0; i < channel_count; i++)
 	{
 	  stpi_dither_channel_t *dc = &CHANNEL(d, i);
@@ -714,7 +713,7 @@ stpi_dither_ut(stp_vars_t *v,
 		  inkp = &(sp->upper);
 		  dc->v -= 131070;
 		  sp->dis = et->d_sq;
-		}	  
+		}
 	      if (inkp->bits)
 		{
 		  if (!mask || (*(mask + d->ptr_offset) & bit))

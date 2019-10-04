@@ -11,8 +11,7 @@
 ## GNU General Public License for more details.
 ##
 ## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
-## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+## along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ## Process this file with automake to produce Makefile.in.
 
@@ -25,28 +24,30 @@ include $(top_srcdir)/scripts/global.mk
 
 noinst_HEADERS = gutenprint-intl.h gutenprint-intl-internal.h
 
-pkginclude_HEADERS = \
-	gutenprint.h \
-	gutenprint-module.h \
-	array.h \
-	bit-ops.h \
-	channel.h \
-	color.h \
-	curve-cache.h \
-	curve.h \
-	dither.h \
-	image.h \
-	list.h \
-	module.h \
-	mxml.h \
-	paper.h \
-	path.h \
-	printers.h \
-	sequence.h \
-	string-list.h \
-	util.h \
-	vars.h \
-	weave.h \
+pkginclude_HEADERS =				\
+	gutenprint.h				\
+	gutenprint-module.h			\
+	array.h					\
+	bit-ops.h				\
+	channel.h				\
+	color.h					\
+	curve-cache.h				\
+	curve.h					\
+	dither.h				\
+	image.h					\
+	list.h					\
+	module.h				\
+	mxml.h					\
+	paper.h					\
+	path.h					\
+	printers.h				\
+	refcache.h				\
+	sequence.h				\
+	string-list.h				\
+	types.h					\
+	util.h					\
+	vars.h					\
+	weave.h					\
 	xml.h
 
 nodist_pkginclude_HEADERS = gutenprint-version.h

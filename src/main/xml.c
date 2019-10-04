@@ -15,8 +15,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 
@@ -50,6 +49,10 @@ typedef struct
 static stp_list_t *stpi_xml_registry;
 
 static stp_list_t *stpi_xml_preloads;
+
+static stp_list_t *stpi_xml_files_loaded;
+
+static stp_string_list_t *cached_xml_files;
 
 static const char *
 xml_registry_namefunc(const void *item)
@@ -130,17 +133,29 @@ static int xml_is_initialised;                 /* Flag for init */
 void
 stp_xml_preinit(void)
 {
-  static int xml_is_preinitialized = 0;
-  if (!xml_is_preinitialized)
+  if (! stpi_xml_registry)
     {
       stpi_xml_registry = stp_list_create();
       stp_list_set_freefunc(stpi_xml_registry, xml_registry_freefunc);
       stp_list_set_namefunc(stpi_xml_registry, xml_registry_namefunc);
+    }
+  if (! stpi_xml_preloads)
+    {
       stpi_xml_preloads = stp_list_create();
       stp_list_set_freefunc(stpi_xml_preloads, xml_preload_freefunc);
       stp_list_set_namefunc(stpi_xml_preloads, xml_preload_namefunc);
     }
-}    
+  if (! stpi_xml_files_loaded)
+    {
+      stpi_xml_files_loaded = stp_list_create();
+      stp_list_set_freefunc(stpi_xml_files_loaded, xml_preload_freefunc);
+      stp_list_set_namefunc(stpi_xml_files_loaded, xml_preload_namefunc);
+    }
+  if (! cached_xml_files)
+    {
+      cached_xml_files = stp_string_list_create();
+    }
+}
 
 /*
  * Call before using any of the static functions in this file.  All
@@ -183,11 +198,14 @@ stp_xml_exit(void)
       return;
     }
   else if (xml_is_initialised < 1)
-    return;
+    {
+      stp_erprintf("stp_xml_exit: unmatched stp_xml_init!\n");
+      stp_abort();
+    }
 
   /* Restore locale */
 #ifdef HAVE_LOCALE_H
-  stp_deprintf(STP_DBG_XML, "stp_xml_init: restoring locale %s\n", saved_locale);
+  stp_deprintf(STP_DBG_XML, "stp_xml_exit: restoring locale %s\n", saved_locale);
   setlocale(LC_ALL, saved_locale);
   stp_free(saved_locale);
   saved_locale = NULL;
@@ -198,20 +216,18 @@ stp_xml_exit(void)
 void
 stp_xml_parse_file_named(const char *name)
 {
-  stp_list_t *file_list = stpi_list_files_on_data_path(name); /* List of XML files */
-  stp_list_item_t *item;                 /* Pointer to current list item */
-  item = stp_list_get_start(file_list);
-  while (item)
+  stp_xml_preinit();
+  stp_deprintf(STP_DBG_XML, "stp_xml_parse_file_named(%s)\n", name);
+  if (! stp_list_get_item_by_name(stpi_xml_files_loaded, name))
     {
-      stp_deprintf(STP_DBG_XML,
-		   "stp_xml_parse_file_named: source file: %s\n",
-		   (const char *) stp_list_item_get_data(item));
-      stp_xml_parse_file((const char *) stp_list_item_get_data(item));
-      item = stp_list_item_next(item);
+      char *file_name = stp_path_find_file(NULL, name);
+      if (file_name)
+	{
+	  stp_xml_parse_file(file_name);
+	  free(file_name);
+	}
     }
-  stp_list_destroy(file_list);
 }
-  
 
 /*
  * Read all available XML files.
@@ -239,7 +255,6 @@ stp_xml_init_defaults(void)
   return 0;
 }
 
-
 /*
  * Parse a single XML file.
  */
@@ -248,55 +263,186 @@ stp_xml_parse_file(const char *file) /* File to parse */
 {
   stp_mxml_node_t *doc;
   stp_mxml_node_t *cur;
-  FILE *fp;
+  int status = 0;
 
   stp_deprintf(STP_DBG_XML, "stp_xml_parse_file: reading  `%s'...\n", file);
 
-  fp = fopen(file, "r");
-  if (!fp)
-    {
-      stp_erprintf("stp_xml_parse_file: unable to open %s: %s\n", file,
-		   strerror(errno));
-      return 1;
-    }
-
   stp_xml_init();
 
-  doc = stp_mxmlLoadFile(NULL, fp, STP_MXML_NO_CALLBACK);
-  fclose(fp);
+  doc = stp_mxmlLoadFromFile(NULL, file, STP_MXML_NO_CALLBACK);
 
-  cur = doc->child;
-  while (cur &&
-	 (cur->type != STP_MXML_ELEMENT ||
-	  (strcmp(cur->value.element.name, "gutenprint") != 0 &&
-	   strcmp(cur->value.element.name, "gimp-print") != 0)))
-    cur = cur->next;
-
-  if (cur == NULL || cur->type != STP_MXML_ELEMENT)
+  if ((cur = stp_xml_get_node(doc, "gutenprint", NULL)) == NULL)
     {
       stp_erprintf("stp_xml_parse_file: %s: parse error\n", file);
-      stp_mxmlDelete(doc);
-      return 1;
+      status = 1;
     }
+  else
+    /* The XML file was read and is the right format */
+    stpi_xml_process_gutenprint(cur, file);
 
-  if (strcmp(cur->value.element.name, "gutenprint") != 0 &&
-      strcmp(cur->value.element.name, "gimp-print") != 0)
-    {
-      stp_erprintf
-	("XML file of the wrong type, root node is %s != (gutenprint || gimp-print)",
-	 cur->value.element.name);
-      stp_mxmlDelete(doc);
-      return 1;
-    }
-
-  /* The XML file was read and is the right format */
-
-  stpi_xml_process_gutenprint(cur, file);
   stp_mxmlDelete(doc);
 
   stp_xml_exit();
 
-  return 0;
+  return status;
+}
+
+static stp_mxml_node_t *
+xml_try_parse_file_1(const char *pathname, const char *topnodename)
+{
+  stp_mxml_node_t *root =
+    stp_mxmlLoadFromFile(NULL, pathname, STP_MXML_NO_CALLBACK);
+  if (root)
+    {
+      stp_mxml_node_t *answer =
+	stp_xml_get_node(root, "gutenprint", topnodename, NULL);
+      if (answer)
+	return answer;
+      stp_mxmlDelete(root);
+      return NULL;
+    }
+  else
+    return NULL;
+}
+
+static stp_mxml_node_t *
+xml_try_parse_file(const char *pathname, const char *topnodename)
+{
+  stp_xml_init();
+  stp_mxml_node_t *answer = xml_try_parse_file_1(pathname, topnodename);
+  stp_xml_exit();
+  return answer;
+}
+
+static void
+xml_cache_file(const char *name, const char *cache, stp_mxml_node_t *node)
+{
+  char *addr_string;
+  stp_asprintf(&addr_string, "%p", (void *) node);
+  /*
+   * A given XML object should never be in multiple caches!  However,
+   * it's possible that different nodes of the same file will be in different
+   * caches.
+   */
+  STPI_ASSERT(!stp_string_list_is_present(cached_xml_files, addr_string), NULL);
+  if (cache)
+    {
+      stp_refcache_add_item(cache, name, node);
+      stp_string_list_add_string_unsafe(cached_xml_files, addr_string, cache);
+    }
+  else
+    stp_string_list_add_string_unsafe(cached_xml_files, addr_string, "");
+  stp_free(addr_string);
+}
+
+static stp_mxml_node_t *
+xml_parse_file_from_path(const char *name, const char *topnodename,
+			 const char *path, const char *cache)
+{
+  stp_mxml_node_t *answer = NULL;
+  if (!(name[0] != '/' && strncmp(name, "./", 2) && strncmp(name, "../", 3)))
+    answer = xml_try_parse_file(name, topnodename);
+  else
+    {
+      stp_list_t *path_to_search;
+      stp_list_item_t *item;
+      if (path)
+	path_to_search = stp_generate_path(path);
+      else
+	path_to_search = stp_data_path();
+      item = stp_list_get_start(path_to_search);
+      while (item)
+	{
+	  const char *dn = (const char *) stp_list_item_get_data(item);
+	  char *ffn = stpi_path_merge(dn, name);
+	  answer = xml_try_parse_file(ffn, topnodename);
+	  stp_free(ffn);
+	  if (answer)
+	    break;
+	  item = stp_list_item_next(item);
+	}
+      stp_list_destroy(path_to_search);
+    }
+  if (answer)
+    xml_cache_file(name, cache, answer);
+  return answer;
+}
+
+stp_mxml_node_t *
+stp_xml_parse_file_from_path_uncached(const char *name, const char *topnodename,
+				      const char *path)
+{
+  return xml_parse_file_from_path(name, topnodename, path, NULL);
+}
+
+stp_mxml_node_t *
+stp_xml_parse_file_from_path_uncached_safe(const char *name,
+					   const char *topnodename,
+					   const char *path)
+{
+  stp_mxml_node_t *answer =
+    xml_parse_file_from_path(name, topnodename, path, NULL);
+  if (! answer)
+    {
+      stp_erprintf("Cannot find file %s of type %s\n", name, topnodename);
+      stp_abort();
+    }
+  return answer;
+}
+
+stp_mxml_node_t *
+stp_xml_parse_file_from_path(const char *name, const char *topnodename,
+			     const char *path)
+{
+  char *cache;
+  void *data;
+  stp_asprintf(&cache, "%s_%s_%s", "xml_cache", topnodename,
+	       path ? path : "DEFAULT");
+  data = stp_refcache_find_item(cache, name);
+  if (! data)
+    data = xml_parse_file_from_path(name, topnodename, path, cache);
+  stp_free(cache);
+  return (stp_mxml_node_t *) data;
+}
+
+stp_mxml_node_t *
+stp_xml_parse_file_from_path_safe(const char *name, const char *topnodename,
+				  const char *path)
+{
+  stp_mxml_node_t *answer = stp_xml_parse_file_from_path(name, topnodename,
+							 path);
+  if (! answer)
+    {
+      stp_erprintf("FATAL: Cannot find file %s of type %s\n", name, topnodename);
+      stp_abort();
+    }
+  return answer;
+}
+
+void
+stp_xml_free_parsed_file(stp_mxml_node_t *node)
+{
+  char *addr_string;
+  /* free(NULL) is legal and a no-op. */
+  if (! node)
+    return;
+  stp_asprintf(&addr_string, "%p", (void *) node);
+  stp_param_string_t *cache_entry =
+    stp_string_list_find(cached_xml_files, addr_string);
+  if (! cache_entry)
+    {
+      stp_erprintf("FATAL: Trying to free unrecorded node %s\n", addr_string);
+      stp_abort();
+    }
+  if (cache_entry->text && cache_entry->text[0] != '\0')
+    stp_refcache_remove_item(cache_entry->text, addr_string);
+  stp_string_list_remove_string(cached_xml_files, addr_string);
+  stp_free(addr_string);
+  while (node->parent && node->parent != node)
+    node = node->parent;
+  stp_xml_init();
+  stp_mxmlDelete(node);
+  stp_xml_exit();
 }
 
 /*
@@ -331,6 +477,18 @@ stp_xmlstrtod(const char *textval)
 {
   double val; /* The value to return */
   val = strtod(textval, (char **)NULL);
+
+  return val;
+}
+
+/*
+ * Convert a text string into a dimension.
+ */
+stp_dimension_t
+stp_xmlstrtodim(const char *textval)
+{
+  double val; /* The value to return */
+  val = (stp_dimension_t) strtod(textval, (char **)NULL);
 
   return val;
 }
@@ -482,11 +640,14 @@ stp_xml_get_node(stp_mxml_node_t *xmlroot, ...)
   child = xmlroot;
   target = va_arg(ap, const char *);
 
+  stp_xml_init();
   while (target && child)
     {
-      child = stp_mxmlFindElement(child, child, target, NULL, NULL, STP_MXML_DESCEND);
+      child = stp_mxmlFindElement(child, child, target, NULL, NULL,
+				  STP_MXML_DESCEND);
       target = va_arg(ap, const char *);
     }
+  stp_xml_exit();
   va_end(ap);
   return child;
 }
@@ -531,6 +692,7 @@ stp_xmldoc_create_generic(void)
   stp_mxml_node_t *doc;
   stp_mxml_node_t *rootnode;
 
+  stp_xml_init();
   /* Create the XML tree */
   doc = stp_mxmlNewElement(NULL, "?xml");
   stp_mxmlElementSetAttr(doc, "version", "1.0");
@@ -543,9 +705,50 @@ stp_xmldoc_create_generic(void)
   stp_mxmlElementSetAttr
     (rootnode, "xsi:schemaLocation",
      "http://gimp-print.sourceforge.net/xsd/gp.xsd-1.0 gutenprint.xsd");
+  stp_xml_exit();
 
   return doc;
 }
 
-
-
+void
+stpi_print_xml_node(stp_mxml_node_t *node)
+{
+  int i;
+  stp_erprintf("Node @%p:\n", (void *) node);
+  stp_erprintf("    Type %d\n", node->type);
+  stp_erprintf("    Next @%p\n", (void *) node->next);
+  stp_erprintf("    Prev @%p\n", (void *) node->prev);
+  stp_erprintf("    Parent @%p\n", (void *) node->parent);
+  stp_erprintf("    Child @%p\n", (void *) node->child);
+  stp_erprintf("    Last @%p\n", (void *) node->last_child);
+  stp_erprintf("    Value: ");
+  switch (node->type)
+    {
+    case STP_MXML_ELEMENT:
+      stp_erprintf("\n        Element, name: %s\n", node->value.element.name);
+      stp_erprintf("        Attrs: %d\n", node->value.element.num_attrs);
+      for (i = 0; i < node->value.element.num_attrs; i++)
+	stp_erprintf("            %s    =>    %s\n",
+		     node->value.element.attrs[i].name,
+		     node->value.element.attrs[i].value);
+      break;
+    case STP_MXML_INTEGER:
+      stp_erprintf(" Integer:    %d\n", node->value.integer);
+      break;
+    case STP_MXML_REAL:
+      stp_erprintf(" Real:       %f\n", node->value.real);
+      break;
+    case STP_MXML_DIMENSION:
+      stp_erprintf(" Dimension:  %f\n", node->value.real);
+      break;
+    case STP_MXML_OPAQUE:
+      stp_erprintf(" Opaque:    '%s'\n", node->value.opaque);
+      break;
+    case STP_MXML_TEXT:
+      stp_erprintf(" Text:       %d '%s'\n", node->value.text.whitespace,
+		   node->value.text.string);
+      break;
+    default:
+      stp_erprintf("UNKNOWN!\n");
+    }
+}

@@ -16,8 +16,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 /*
@@ -94,7 +93,8 @@ static const int the_parameter_count =
 sizeof(the_parameters) / sizeof(const stp_parameter_t);
 
 static int
-ps_option_to_param(stp_parameter_t *param, stp_mxml_node_t *option)
+ps_option_to_param(const stp_vars_t *v, stp_parameter_t *param,
+		   stp_mxml_node_t *option)
 {
   const char *group_text = stp_mxmlElementGetAttr(option, "grouptext");
 
@@ -120,7 +120,7 @@ ps_option_to_param(stp_parameter_t *param, stp_mxml_node_t *option)
       param->is_active = 1;
       param->verify_this_parameter = 1;
       param->name = stp_mxmlElementGetAttr(option, "stpname");
-      stp_deprintf(STP_DBG_PS,
+      stp_dprintf(STP_DBG_PS, v,
 		   "Gutenprint parameter %s type %d mandatory %d class %d level %d channel %d default %s %f",
 		   param->name, param->p_type, param->is_mandatory,
 		   param->p_class, param->p_level, param->channel,
@@ -131,15 +131,15 @@ ps_option_to_param(stp_parameter_t *param, stp_mxml_node_t *option)
 	  param->deflt.dbl = stp_default_value;
 	  param->bounds.dbl.upper = upper_bound;
 	  param->bounds.dbl.lower = lower_bound;
-	  stp_deprintf(STP_DBG_PS, " %.3f %.3f %.3f\n",
+	  stp_dprintf(STP_DBG_PS, v, " %.3f %.3f %.3f\n",
 		       param->deflt.dbl, param->bounds.dbl.upper,
 		       param->bounds.dbl.lower);
 	  break;
 	case STP_PARAMETER_TYPE_DIMENSION:
 	  param->deflt.dimension = atoi(default_value);
-	  param->bounds.dimension.upper = (int) upper_bound;
-	  param->bounds.dimension.lower = (int) lower_bound;
-	  stp_deprintf(STP_DBG_PS, " %d %d %d\n",
+	  param->bounds.dimension.upper = (stp_dimension_t) upper_bound;
+	  param->bounds.dimension.lower = (stp_dimension_t) lower_bound;
+	  stp_dprintf(STP_DBG_PS, v, " %f %f %f\n",
 		       param->deflt.dimension, param->bounds.dimension.upper,
 		       param->bounds.dimension.lower);
 	  break;
@@ -147,16 +147,16 @@ ps_option_to_param(stp_parameter_t *param, stp_mxml_node_t *option)
 	  param->deflt.integer = atoi(default_value);
 	  param->bounds.integer.upper = (int) upper_bound;
 	  param->bounds.integer.lower = (int) lower_bound;
-	  stp_deprintf(STP_DBG_PS, " %d %d %d\n",
+	  stp_dprintf(STP_DBG_PS, v, " %d %d %d\n",
 		       param->deflt.integer, param->bounds.integer.upper,
 		       param->bounds.integer.lower);
 	  break;
 	case STP_PARAMETER_TYPE_BOOLEAN:
 	  param->deflt.boolean = strcasecmp(default_value, "true") == 0 ? 1 : 0;
-	  stp_deprintf(STP_DBG_PS, " %d\n", param->deflt.boolean);
+	  stp_dprintf(STP_DBG_PS, v, " %d\n", param->deflt.boolean);
 	  break;
 	default:
-	  stp_deprintf(STP_DBG_PS, "\n");
+	  stp_dprintf(STP_DBG_PS, v, "\n");
 	  break;
 	}
     }
@@ -236,8 +236,8 @@ check_ppd_file(const stp_vars_t *v)
       m_ppd_file = stp_strdup(ppd_file);
       return 1;
     }
-}    
-  
+}
+
 
 static stp_parameter_list_t
 ps_list_parameters(const stp_vars_t *v)
@@ -263,7 +263,7 @@ ps_list_parameters(const stp_vars_t *v)
 	  option = stpi_xmlppd_find_option_index(m_ppd, i);
 	  if (option)
 	    {
-	      ps_option_to_param(param, option);
+	      ps_option_to_param(v, param, option);
 	      if (param->p_type != STP_PARAMETER_TYPE_INVALID &&
 		  strcmp(param->name, "PageRegion") != 0 &&
 		  strcmp(param->name, "PageSize") != 0)
@@ -314,8 +314,8 @@ ps_parameters_internal(const stp_vars_t *v, const char *name,
 	      nickname = stp_mxmlElementGetAttr(m_ppd, "nickname");
 	    else
 	      nickname = _("None; please provide a PPD file");
-	    stp_string_list_add_string(description->bounds.str,
-				       nickname, nickname);
+	    stp_string_list_add_string_unsafe(description->bounds.str,
+					      nickname, nickname);
 	    description->deflt.str = nickname;
 	    description->is_active = 1;
 	    return;
@@ -374,7 +374,7 @@ ps_parameters_internal(const stp_vars_t *v, const char *name,
       }
   }
 
-  ps_option_to_param(description, option);
+  ps_option_to_param(v, description, option);
   if (description->p_type != STP_PARAMETER_TYPE_STRING_LIST)
     return;
   num_choices = atoi(stp_mxmlElementGetAttr(option, "num_choices"));
@@ -436,8 +436,8 @@ ps_parameters(const stp_vars_t *v, const char *name,
 
 static void
 ps_media_size_internal(const stp_vars_t *v,		/* I */
-		       int  *width,		/* O - Width in points */
-		       int  *height)		/* O - Height in points */
+		       stp_dimension_t  *width,		/* O - Width in points */
+		       stp_dimension_t  *height)		/* O - Height in points */
 {
   const char *pagesize = stp_get_string_parameter(v, "PageSize");
   int status = check_ppd_file(v);
@@ -466,12 +466,80 @@ ps_media_size_internal(const stp_vars_t *v,		/* I */
 	}
     }
 
-  stp_dprintf(STP_DBG_PS, v, "dimensions %d %d\n", *width, *height);
+  stp_dprintf(STP_DBG_PS, v, "dimensions %f %f\n", *width, *height);
   return;
 }
 
+static const stp_papersize_t *
+ps_describe_papersize(const stp_vars_t *v, const char *name)
+{
+  int status = check_ppd_file(v);
+  if (status)
+    {
+      stp_mxml_node_t *paper = stpi_xmlppd_find_page_size(m_ppd, name);
+      if (paper)
+	{
+	  const char *papersize_list_name = m_ppd_file ? m_ppd_file : "NOPPD";
+	  stp_papersize_list_t *ourlist =
+	    stpi_find_papersize_list_named(papersize_list_name);
+	  const stp_papersize_t *papersize;
+	  const stp_papersize_t *standard_papersize =
+	    stpi_get_listed_papersize(name, "standard");
+
+	  if (! ourlist)
+	    ourlist = stpi_new_papersize_list(papersize_list_name);
+
+	  papersize = stpi_get_papersize_by_name(ourlist, name);
+	  if (! papersize)
+	    {
+	      stp_papersize_t *npapersize = stp_malloc(sizeof(stp_papersize_t));
+	      npapersize->name = stp_strdup(name);
+	      npapersize->text = stp_strdup(name);
+	      npapersize->comment = NULL;
+	      /*
+	       * Note that we used the width and height from the PPD file,
+	       * not from the standard definition.  This is so that if the
+	       * PPD file is for another driver that uses slightly different
+	       * dimensions than we do that our description matches that of
+	       * driver in use.
+	       */
+	      npapersize->width = atof(stp_mxmlElementGetAttr(paper, "width"));
+	      npapersize->height = atof(stp_mxmlElementGetAttr(paper, "height"));
+	      /*
+	       * Only use auxiliary information from our list if our paper size
+	       * really is substantially the same as what the PPD file says!
+	       */
+	      if (standard_papersize &&
+		  fabs(npapersize->width - standard_papersize->width) < 1 &&
+		  fabs(npapersize->height - standard_papersize->height) < 1)
+		{
+		  npapersize->paper_unit = standard_papersize->paper_unit;
+		  npapersize->paper_size_type = standard_papersize->paper_size_type;
+		  npapersize->top = standard_papersize->top;
+		  npapersize->left = standard_papersize->left;
+		  npapersize->bottom = standard_papersize->bottom;
+		  npapersize->right = standard_papersize->right;
+		}
+	      else
+		{
+		  npapersize->top = 0;
+		  npapersize->left = 0;
+		  npapersize->bottom = 0;
+		  npapersize->right = 0;
+		  npapersize->paper_unit = PAPERSIZE_ENGLISH_STANDARD;
+		  npapersize->paper_size_type = PAPERSIZE_TYPE_STANDARD;
+		}
+	      if (stpi_papersize_create(ourlist, npapersize))
+		return npapersize;
+	    }
+	  return papersize;
+	}
+    }
+  return NULL;
+}
+
 static void
-ps_media_size(const stp_vars_t *v, int *width, int *height)
+ps_media_size(const stp_vars_t *v, stp_dimension_t *width, stp_dimension_t *height)
 {
 #ifdef HAVE_LOCALE_H
   char *locale = stp_strdup(setlocale(LC_ALL, NULL));
@@ -491,12 +559,12 @@ ps_media_size(const stp_vars_t *v, int *width, int *height)
 static void
 ps_imageable_area_internal(const stp_vars_t *v,      /* I */
 			   int  use_max_area, /* I - Use maximum area */
-			   int  *left,	/* O - Left position in points */
-			   int  *right,	/* O - Right position in points */
-			   int  *bottom, /* O - Bottom position in points */
-			   int  *top)	/* O - Top position in points */
+			   stp_dimension_t  *left,	/* O - Left position in points */
+			   stp_dimension_t  *right,	/* O - Right position in points */
+			   stp_dimension_t  *bottom, /* O - Bottom position in points */
+			   stp_dimension_t  *top)	/* O - Top position in points */
 {
-  int width, height;
+  stp_dimension_t width, height;
   const char *pagesize = stp_get_string_parameter(v, "PageSize");
   if (!pagesize)
     pagesize = "";
@@ -517,13 +585,13 @@ ps_imageable_area_internal(const stp_vars_t *v,      /* I */
 	  double pright = atoi(stp_mxmlElementGetAttr(paper, "right"));
 	  double ptop = atoi(stp_mxmlElementGetAttr(paper, "top"));
 	  double pbottom = atoi(stp_mxmlElementGetAttr(paper, "bottom"));
-	  stp_dprintf(STP_DBG_PS, v, "size=l %f r %f b %f t %f h %d w %d\n",
+	  stp_dprintf(STP_DBG_PS, v, "size=l %f r %f b %f t %f h %f w %f\n",
 		      pleft, pright, pbottom, ptop, height, width);
-	  *left = (int) pleft;
-	  *right = (int) pright;
-	  *top = height - (int) ptop;
-	  *bottom = height - (int) pbottom;
-	  stp_dprintf(STP_DBG_PS, v, ">>>> l %d r %d b %d t %d h %d w %d\n",
+	  *left = (stp_dimension_t) pleft;
+	  *right = (stp_dimension_t) pright;
+	  *top = height - (stp_dimension_t) ptop;
+	  *bottom = height - (stp_dimension_t) pbottom;
+	  stp_dprintf(STP_DBG_PS, v, ">>>> l %f r %f b %f t %f h %f w %f\n",
 		      *left, *right, *bottom, *top, height, width);
 	}
     }
@@ -540,7 +608,7 @@ ps_imageable_area_internal(const stp_vars_t *v,      /* I */
       *bottom = height;
   }
 
-  stp_dprintf(STP_DBG_PS, v, "pagesize %s max_area=%d l %d r %d b %d t %d h %d w %d\n",
+  stp_dprintf(STP_DBG_PS, v, "pagesize %s max_area=%d l %f r %f b %f t %f h %f w %f\n",
 	      pagesize ? pagesize : "(null)",
 	      use_max_area, *left, *right, *bottom, *top, width, height);
 
@@ -549,10 +617,10 @@ ps_imageable_area_internal(const stp_vars_t *v,      /* I */
 
 static void
 ps_imageable_area(const stp_vars_t *v,      /* I */
-                  int  *left,		/* O - Left position in points */
-                  int  *right,		/* O - Right position in points */
-                  int  *bottom,		/* O - Bottom position in points */
-                  int  *top)		/* O - Top position in points */
+                  stp_dimension_t  *left,	/* O - Left position in points */
+                  stp_dimension_t  *right,	/* O - Right position in points */
+                  stp_dimension_t  *bottom,	/* O - Bottom position in points */
+                  stp_dimension_t  *top)	/* O - Top position in points */
 {
 #ifdef HAVE_LOCALE_H
   char *locale = stp_strdup(setlocale(LC_ALL, NULL));
@@ -567,10 +635,10 @@ ps_imageable_area(const stp_vars_t *v,      /* I */
 
 static void
 ps_maximum_imageable_area(const stp_vars_t *v,      /* I */
-			  int  *left,	/* O - Left position in points */
-			  int  *right,	/* O - Right position in points */
-			  int  *bottom,	/* O - Bottom position in points */
-			  int  *top)	/* O - Top position in points */
+			  stp_dimension_t  *left,	/* O - Left position in points */
+			  stp_dimension_t  *right,	/* O - Right position in points */
+			  stp_dimension_t  *bottom,	/* O - Bottom position in points */
+			  stp_dimension_t  *top)	/* O - Top position in points */
 {
 #ifdef HAVE_LOCALE_H
   char *locale = stp_strdup(setlocale(LC_ALL, NULL));
@@ -585,13 +653,13 @@ ps_maximum_imageable_area(const stp_vars_t *v,      /* I */
 
 static void
 ps_limit(const stp_vars_t *v,  		/* I */
-	 int *width,
-	 int *height,
-	 int *min_width,
-	 int *min_height)
+	 stp_dimension_t *width,
+	 stp_dimension_t *height,
+	 stp_dimension_t *min_width,
+	 stp_dimension_t *min_height)
 {
-  *width =	INT_MAX;
-  *height =	INT_MAX;
+  *width =	(stp_dimension_t) INT_MAX;
+  *height =	(stp_dimension_t) INT_MAX;
   *min_width =	1;
   *min_height =	1;
 }
@@ -600,18 +668,24 @@ ps_limit(const stp_vars_t *v,  		/* I */
  * This is really bogus...
  */
 static void
-ps_describe_resolution_internal(const stp_vars_t *v, int *x, int *y)
+ps_describe_resolution_internal(const stp_vars_t *v, stp_resolution_t *x, stp_resolution_t *y)
 {
   const char *resolution = stp_get_string_parameter(v, "Resolution");
   *x = -1;
   *y = -1;
   if (resolution)
-    sscanf(resolution, "%dx%d", x, y);
+    {
+      int tx = -1;
+      int ty = -1;
+      sscanf(resolution, "%dx%d", &tx, &ty);
+      *x = (stp_resolution_t) tx;
+      *y = (stp_resolution_t) ty;
+    }
   return;
 }
 
 static void
-ps_describe_resolution(const stp_vars_t *v, int *x, int *y)
+ps_describe_resolution(const stp_vars_t *v, stp_resolution_t *x, stp_resolution_t *y)
 {
 #ifdef HAVE_LOCALE_H
   char *locale = stp_strdup(setlocale(LC_ALL, NULL));
@@ -744,11 +818,11 @@ ps_external_options(const stp_vars_t *v)
 	      if (stp_get_dimension_parameter(v, desc.name) !=
 		  desc.deflt.dimension)
 		{
-		  stp_dprintf(STP_DBG_PS, v, "Adding dimension parameter %s (%s): %d %d\n",
+		  stp_dprintf(STP_DBG_PS, v, "Adding dimension parameter %s (%s): %f %f\n",
 			      desc.name, ppd_name ? ppd_name : "(null)",
 			      stp_get_dimension_parameter(v, desc.name),
 			      desc.deflt.dimension);
-		  stp_asprintf(&tmp, "%d",
+		  stp_asprintf(&tmp, "%f",
 			       stp_get_dimension_parameter(v, desc.name));
 		  stp_string_list_add_string(answer,
 					     ppd_name ? ppd_name : desc.name,
@@ -870,7 +944,7 @@ ps_print_device_settings(stp_vars_t *v)
 	      if(stp_get_dimension_parameter(v,desc.name)!=desc.deflt.dimension)
 		{
 		  stp_puts("[{\n", v);
-		  stp_zprintf(v, "%%%%IncludeFeature: *%s %d\n", desc.name,
+		  stp_zprintf(v, "%%%%IncludeFeature: *%s %f\n", desc.name,
 			      stp_get_dimension_parameter(v, desc.name));
 		  stp_puts("} stopped cleartomark\n", v);
 		}
@@ -897,18 +971,18 @@ ps_print_internal(stp_vars_t *v, stp_image_t *image)
   const char    *print_mode = stp_get_string_parameter(v, "PrintingMode");
   const char *input_image_type = stp_get_string_parameter(v, "InputImageType");
   unsigned short *out = NULL;
-  int		top = stp_get_top(v);
-  int		left = stp_get_left(v);
+  stp_dimension_t		top = stp_get_top(v);
+  stp_dimension_t		left = stp_get_left(v);
   int		y;		/* Looping vars */
-  int		page_left,	/* Left margin of page */
+  stp_dimension_t		page_left,	/* Left margin of page */
 		page_right,	/* Right margin of page */
 		page_top,	/* Top of page */
 		page_bottom,	/* Bottom of page */
 		page_width,	/* Width of page */
 		page_height,	/* Height of page */
-		paper_width,	/* Width of physical page */
-		paper_height,	/* Height of physical page */
-		out_width,	/* Width of image on page */
+  		paper_width,	/* Width of physical page */
+		paper_height;	/* Height of physical page */
+  int		out_width,	/* Width of image on page */
 		out_height,	/* Height of image on page */
 		out_channels,	/* Output bytes per pixel */
 		out_ps_height,	/* Output height (Level 2 output) */
@@ -948,20 +1022,20 @@ ps_print_internal(stp_vars_t *v, stp_image_t *image)
   * Output a standard PostScript header with DSC comments...
   */
 
-  curtime = time(NULL);
+  curtime = stpi_time(NULL);
 
   top = paper_height - top;
 
   stp_dprintf(STP_DBG_PS, v,
 	      "out_width = %d, out_height = %d\n", out_width, out_height);
   stp_dprintf(STP_DBG_PS, v,
-	      "page_left = %d, page_right = %d, page_bottom = %d, page_top = %d\n",
+	      "page_left = %f, page_right = %f, page_bottom = %f, page_top = %f\n",
 	      page_left, page_right, page_bottom, page_top);
-  stp_dprintf(STP_DBG_PS, v, "left = %d, top = %d\n", left, top);
-  stp_dprintf(STP_DBG_PS, v, "page_width = %d, page_height = %d\n",
+  stp_dprintf(STP_DBG_PS, v, "left = %f, top = %f\n", left, top);
+  stp_dprintf(STP_DBG_PS, v, "page_width = %f, page_height = %f\n",
 	      page_width, page_height);
 
-  stp_dprintf(STP_DBG_PS, v, "bounding box l %d b %d r %d t %d\n",
+  stp_dprintf(STP_DBG_PS, v, "bounding box l %f b %f r %f t %f\n",
 	      page_left, paper_height - page_bottom,
 	      page_right, paper_height - page_top);
 
@@ -973,7 +1047,7 @@ ps_print_internal(stp_vars_t *v, stp_image_t *image)
   stp_zprintf(v, "%%%%Creator: %s/Gutenprint\n", stp_image_get_appname(image));
 #endif
   stp_zprintf(v, "%%%%CreationDate: %s", ctime(&curtime));
-  stp_zprintf(v, "%%%%BoundingBox: %d %d %d %d\n",
+  stp_zprintf(v, "%%%%BoundingBox: %f %f %f %f\n",
 	      page_left, paper_height - page_bottom,
 	      page_right, paper_height - page_top);
   stp_puts("%%DocumentData: Clean7Bit\n", v);
@@ -991,7 +1065,7 @@ ps_print_internal(stp_vars_t *v, stp_image_t *image)
   stp_puts("%%Page: 1 1\n", v);
   stp_puts("gsave\n", v);
 
-  stp_zprintf(v, "%d %d translate\n", left, top);
+  stp_zprintf(v, "%f %f translate\n", left, top);
 
   /* Force locale to "C", because decimal numbers in Postscript must
      always be printed with a decimal point rather than the
@@ -1169,7 +1243,6 @@ ps_print(const stp_vars_t *v, stp_image_t *image)
   char *locale;
 #endif
   stp_vars_t *nv = stp_vars_create_copy(v);
-  stp_prune_inactive_options(nv);
   if (!stp_verify(nv))
     {
       stp_eprintf(nv, "Print options not verified; cannot print.\n");
@@ -1335,7 +1408,8 @@ static const stp_printfuncs_t print_ps_printfuncs =
   stp_verify_printer_params,
   NULL,
   NULL,
-  ps_external_options
+  ps_external_options,
+  ps_describe_papersize
 };
 
 
@@ -1349,14 +1423,14 @@ static stp_family_t print_ps_module_data =
 static int
 print_ps_module_init(void)
 {
-  return stp_family_register(print_ps_module_data.printer_list);
+  return stpi_family_register(print_ps_module_data.printer_list);
 }
 
 
 static int
 print_ps_module_exit(void)
 {
-  return stp_family_unregister(print_ps_module_data.printer_list);
+  return stpi_family_unregister(print_ps_module_data.printer_list);
 }
 
 
@@ -1377,4 +1451,3 @@ stp_module_t stp_module_data =
     print_ps_module_exit,
     (void *) &print_ps_module_data
   };
-

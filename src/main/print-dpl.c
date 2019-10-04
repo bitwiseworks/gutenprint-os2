@@ -6,7 +6,7 @@
  *	Robert Krawitz (rlk@alum.mit.edu) and
  *      Dave Hill (dave@minnie.demon.co.uk)
  *
- *   Copyright 2016 FIXME
+ *   Copyright 2016 Steve Letter (sletter1@yahoo.com)
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the Free
@@ -19,8 +19,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 /*
@@ -167,7 +166,7 @@ static const dpl_cap_t dpl_model_capabilities[] = {
   {10020,			/* I Class Mark II 600 DPI */
    4 * 72, 99 * 72,		/* Max paper size */
    1, 1,			/* Min paper size */
-   /* for future use 
+   /* for future use
       DPL_RES_150_150 | DPL_RES_203_203 | DPL_RES_300_300 | DPL_RES_600_600, */
    DPL_RES_300_300 | DPL_RES_600_600,	/* Resolutions */
    DPL_RES_600_600,
@@ -286,6 +285,193 @@ static const dpl_cap_t dpl_model_capabilities[] = {
    'A',
    'E',
    },
+/* Datamax-O'Neil Thermal DPL printers */
+  {10031,                       /* H4212 */
+   4 * 72, 99 * 72,             /* Max paper size */
+   1, 1,                        /* Min paper size */
+   DPL_RES_203_203,             /* Resolutions */
+   DPL_RES_203_203,             /* Max Resolution */
+   DPL_RES_203_203,             /* Resolution Adjust */
+   'W',                         /* Maximum IPS */
+   'C',                         /* Minimum IPS */
+   'O',                         /* Default IPS */
+   },
+/* Datamax-O'Neil Thermal DPL printers */
+  {10032,                       /* H4212X */
+   4 * 72, 99 * 72,             /* Max paper size */
+   1, 1,                        /* Min paper size */
+   DPL_RES_203_203,             /* Resolutions */
+   DPL_RES_203_203,             /* Max Resolution */
+   DPL_RES_203_203,             /* Resolution Adjust */
+   'W',                         /* Maximum IPS */
+   'C',                         /* Minimum IPS */
+   'O',                         /* Default IPS */
+   },
+/* Datamax-O'Neil Thermal DPL printers */
+  {10033,                       /* H4310 */
+   4 * 72, 99 * 72,             /* Max paper size */
+   1, 1,                        /* Min paper size */
+   DPL_RES_150_150 | DPL_RES_300_300,   /* Resolutions */
+   DPL_RES_300_300,             /* Max Resolution */
+   DPL_RES_203_203,             /* Resolution Adjust */
+   'S',                         /* Maximum IPS */
+   'C',                         /* Minimum IPS */
+   'O',                         /* Default IPS */
+   },
+/* Datamax-O'Neil Thermal DPL printers */
+  {10034,                       /* H4310X */
+   4 * 72, 99 * 72,             /* Max paper size */
+   1, 1,                        /* Min paper size */
+   DPL_RES_150_150 | DPL_RES_300_300,   /* Resolutions */
+   DPL_RES_300_300,             /* Max Resolution */
+   DPL_RES_203_203,             /* Resolution Adjust */
+   'S',                         /* Maximum IPS */
+   'C',                         /* Minimum IPS */
+   'O',                         /* Default IPS */
+   },
+/* Datamax-O'Neil Thermal DPL printers */
+  {10035,                       /* H4408 */
+   4 * 72, 99 * 72,             /* Max paper size */
+   1, 1,                        /* Min paper size */
+   DPL_RES_400_400 | DPL_RES_203_203,   /* Resolutions */
+   DPL_RES_203_203,             /* Max Resolution */
+   DPL_RES_203_203,             /* Resolution Adjust */
+   'O',                         /* Maximum IPS */
+   'C',                         /* Minimum IPS */
+   'G',                         /* Default IPS */
+   },
+/* Datamax-O'Neil Thermal DPL printers */
+  {10036,                       /* H4606 */
+   4 * 72, 99 * 72,             /* Max paper size */
+   1, 1,                        /* Min paper size */
+   DPL_RES_300_300 | DPL_RES_600_600,   /* Resolutions */
+   DPL_RES_600_600,             /* Max Resolution */
+   DPL_RES_300_300,             /* Resolution Adjust */
+   'K',                         /* Maximum IPS */
+   'C',                         /* Minimum IPS */
+   'G',                         /* Default IPS */
+   },
+/* Datamax-O'Neil Thermal DPL printers */
+  {10037,                       /* H4606X */
+   4 * 72, 99 * 72,             /* Max paper size */
+   1, 1,                        /* Min paper size */
+   DPL_RES_300_300 | DPL_RES_600_600,   /* Resolutions */
+   DPL_RES_600_600,             /* Max Resolution */
+   DPL_RES_300_300,             /* Resolution Adjust */
+   'K',                         /* Maximum IPS */
+   'C',                         /* Minimum IPS */
+   'G',                         /* Default IPS */
+   },
+/* Datamax-O'Neil Thermal DPL printers */
+  {10038,                       /* H6210 */
+   6 * 72, 99 * 72,             /* Max paper size */
+   1, 1,                        /* Min paper size */
+   DPL_RES_203_203,             /* Resolutions */
+   DPL_RES_203_203,             /* Max Resolution */
+   DPL_RES_203_203,             /* Resolution Adjust */
+   'S',                         /* Maximum IPS */
+   'C',                         /* Minimum IPS */
+   'O',                         /* Default IPS */
+   },
+/* Datamax-O'Neil Thermal DPL printers */
+  {10039,                       /* H6210X */
+   6 * 72, 99 * 72,             /* Max paper size */
+   1, 1,                        /* Min paper size */
+   DPL_RES_203_203,             /* Resolutions */
+   DPL_RES_203_203,             /* Max Resolution */
+   DPL_RES_203_203,             /* Resolution Adjust */
+   'S',                         /* Maximum IPS */
+   'C',                         /* Minimum IPS */
+   'O',                         /* Default IPS */
+   },
+/* Datamax-O'Neil Thermal DPL printers */
+  {10040,                       /* H6212 */
+   6 * 72, 99 * 72,             /* Max paper size */
+   1, 1,                        /* Min paper size */
+   DPL_RES_203_203,             /* Resolutions */
+   DPL_RES_203_203,             /* Max Resolution */
+   DPL_RES_203_203,             /* Resolution Adjust */
+   'W',                         /* Maximum IPS */
+   'C',                         /* Minimum IPS */
+   'O',                         /* Default IPS */
+   },
+/* Datamax-O'Neil Thermal DPL printers */
+  {10041,                       /* H6212X */
+   6 * 72, 99 * 72,             /* Max paper size */
+   1, 1,                        /* Min paper size */
+   DPL_RES_203_203,             /* Resolutions */
+   DPL_RES_203_203,             /* Max Resolution */
+   DPL_RES_203_203,             /* Resolution Adjust */
+   'W',                         /* Maximum IPS */
+   'C',                         /* Minimum IPS */
+   'O',                         /* Default IPS */
+   },
+/* Datamax-O'Neil Thermal DPL printers */
+  {10042,                       /* H6308 */
+   6 * 72, 99 * 72,             /* Max paper size */
+   1, 1,                        /* Min paper size */
+   DPL_RES_150_150 | DPL_RES_300_300,   /* Resolutions */
+   DPL_RES_300_300,             /* Max Resolution */
+   DPL_RES_203_203,             /* Resolution Adjust */
+   'O',                         /* Maximum IPS */
+   'C',                         /* Minimum IPS */
+   'G',                         /* Default IPS */
+   },
+/* Datamax-O'Neil Thermal DPL printers */
+  {10043,                       /* H6310X */
+   6 * 72, 99 * 72,             /* Max paper size */
+   1, 1,                        /* Min paper size */
+   DPL_RES_150_150 | DPL_RES_300_300,   /* Resolutions */
+   DPL_RES_300_300,             /* Max Resolution */
+   DPL_RES_203_203,             /* Resolution Adjust */
+   'S',                         /* Maximum IPS */
+   'C',                         /* Minimum IPS */
+   'O',                         /* Default IPS */
+   },
+/* Datamax-O'Neil Thermal DPL printers */
+  {10044,                       /* H8308 */
+   8.5 * 72, 99 * 72,           /* Max paper size */
+   1, 1,                        /* Min paper size */
+   DPL_RES_150_150 | DPL_RES_300_300,   /* Resolutions */
+   DPL_RES_300_300,             /* Max Resolution */
+   DPL_RES_203_203,             /* Resolution Adjust */
+   'O',                         /* Maximum IPS */
+   'C',                         /* Minimum IPS */
+   'G',                         /* Default IPS */
+   },
+/* Datamax-O'Neil Thermal DPL printers */
+  {10045,                       /* H8308X */
+   8.5 * 72, 99 * 72,           /* Max paper size */
+   1, 1,                        /* Min paper size */
+   DPL_RES_150_150 | DPL_RES_300_300,   /* Resolutions */
+   DPL_RES_300_300,             /* Max Resolution */
+   DPL_RES_203_203,             /* Resolution Adjust */
+   'O',                         /* Maximum IPS */
+   'C',                         /* Minimum IPS */
+   'G',                         /* Default IPS */
+   },
+/* Honeywell Thermal DPL printers */
+  {10046,                       /* RP2 */
+   2 * 72, 99 * 72,             /* Max paper size */
+   1, 1,                        /* Min paper size */
+   DPL_RES_203_203,     /* Resolutions */
+   DPL_RES_203_203,
+   DPL_RES_203_203,
+   'I',
+   'A',
+   'E',
+   },
+/* Honeywell Thermal DPL printers */
+  {10047,                       /* RP4 */
+   4 * 72, 99 * 72,             /* Max paper size */
+   1, 1,                        /* Min paper size */
+   DPL_RES_203_203,     /* Resolutions */
+   DPL_RES_203_203,
+   DPL_RES_203_203,
+   'I',
+   'A',
+   'E',
+   },
 };
 
 static const stp_parameter_t the_parameters[] = {
@@ -305,12 +491,13 @@ static const stp_parameter_t the_parameters[] = {
     STP_PARAMETER_TYPE_STRING_LIST, STP_PARAMETER_CLASS_CORE,
     STP_PARAMETER_LEVEL_BASIC, 1, 1, STP_CHANNEL_NONE, 1, 0
   },
-#ifdef FIXME
+#ifdef FIXME  /* Orientation not available for graphics, need
+               * rotation routine in this driver */
   {
    "Orientation", N_("Orientation"), "Color=No,Category=Basic Printer Setup",
    N_("Orientation, Portrait, Landscape, Upside Down, Seascape"),
    STP_PARAMETER_TYPE_STRING_LIST, STP_PARAMETER_CLASS_FEATURE,
-   STP_PARAMETER_LEVEL_BASIC, 1, 1, STP_CHANNEL_NONE, 1, 0,
+   STP_PARAMETER_LEVEL_BASIC, 1, 1, STP_CHANNEL_NONE, 1, 0
    },
 #endif
   {
@@ -379,7 +566,8 @@ static const int float_parameter_count =
  */
 
 static const char *
-dpl_val_to_string (int code,	/* I: Code */
+dpl_val_to_string (const stp_vars_t *v,
+		   int code,	/* I: Code */
 		   const dpl_t * options,	/* I: Options */
 		   int num_options)	/* I: Num options */
 {
@@ -400,13 +588,14 @@ dpl_val_to_string (int code,	/* I: Code */
 	}
     }
 
-  stp_deprintf (STP_DBG_DPL, "Code: %d, String: %s\n", code, string);
+  stp_dprintf (STP_DBG_DPL, v, "Code: %d, String: %s\n", code, string);
 
   return (string);
 }
 
 static const char *
-dpl_val_to_text (int code,	/* I: Code */
+dpl_val_to_text (const stp_vars_t *v,
+		 int code,	/* I: Code */
 		 const dpl_t * options,	/* I: Options */
 		 int num_options)	/* I: Num options */
 {
@@ -427,7 +616,7 @@ dpl_val_to_text (int code,	/* I: Code */
 	}
     }
 
-  stp_deprintf (STP_DBG_DPL, "Code: %d, String: %s\n", code, string);
+  stp_dprintf (STP_DBG_DPL, v, "Code: %d, String: %s\n", code, string);
 
   return (string);
 }
@@ -437,9 +626,10 @@ dpl_val_to_text (int code,	/* I: Code */
  */
 
 static const dpl_cap_t *	/* O: Capabilities */
-dpl_get_model_capabilities (int model)	/* I: Model */
+dpl_get_model_capabilities (const stp_vars_t *v)	/* I: Model */
 {
   int i;
+  int model = stp_get_model_id(v);
   int models = sizeof (dpl_model_capabilities) / sizeof (dpl_cap_t);
   for (i = 0; i < models; i++)
     {
@@ -448,7 +638,7 @@ dpl_get_model_capabilities (int model)	/* I: Model */
 	  return &(dpl_model_capabilities[i]);
 	}
     }
-  stp_erprintf ("dpl: model %d not found in capabilities list.\n", model);
+  stp_eprintf (v, "dpl: model %d not found in capabilities list.\n", model);
   return &(dpl_model_capabilities[0]);
 }
 
@@ -457,7 +647,7 @@ dpl_get_model_capabilities (int model)	/* I: Model */
  */
 
 static void
-dpl_describe_resolution (const stp_vars_t * v, int *x, int *y)
+dpl_describe_resolution (const stp_vars_t * v, stp_resolution_t *x, stp_resolution_t *y)
 {
   int i;
   const char *resolution = stp_get_string_parameter (v, "Resolution");
@@ -487,11 +677,11 @@ dpl_describe_resolution (const stp_vars_t * v, int *x, int *y)
 int
 dpl_get_multiplier (const stp_vars_t * v)
 {
-  int x, y, multiplier;
+  stp_resolution_t x, y;
+  int multiplier;
   int i;
   int max_dpi;
-  int model = stp_get_model_id (v);
-  const dpl_cap_t *caps = dpl_get_model_capabilities (model);
+  const dpl_cap_t *caps = dpl_get_model_capabilities (v);
 
   for (i = 0; i < NUM_RESOLUTIONS; i++)
     {
@@ -548,9 +738,9 @@ static const stp_param_string_t label_separator_types[] = {
  */
 
 static int
-dpl_papersize_valid (const stp_papersize_t * pt, int model)
+dpl_papersize_valid (const stp_vars_t *v, const stp_papersize_t * pt)
 {
-  const dpl_cap_t *caps = dpl_get_model_capabilities (model);
+  const dpl_cap_t *caps = dpl_get_model_capabilities (v);
   unsigned int pwidth = pt->width;
   unsigned int pheight = pt->height;
 
@@ -563,7 +753,7 @@ dpl_papersize_valid (const stp_papersize_t * pt, int model)
 
 /*
  * We are allowed custom paper sizes. Check that the size is within
- * limits.  Check that the name contains d-o if this is the 
+ * limits.  Check that the name contains d-o if this is the
  * Datamax O'Neil label printer and not custom paper
  */
 
@@ -618,16 +808,16 @@ dpl_parameters (const stp_vars_t * v, const char *name,
   if (name == NULL)
     return;
 
-  stp_deprintf (STP_DBG_DPL, "dpl_parameters(): Name = %s\n", name);
+  stp_dprintf (STP_DBG_DPL, v, "dpl_parameters(): Name = %s\n", name);
 
-  caps = dpl_get_model_capabilities (model);
+  caps = dpl_get_model_capabilities (v);
 
-  stp_deprintf (STP_DBG_DPL, "Printer model = %d\n", model);
-  stp_deprintf (STP_DBG_DPL, "PageWidth = %d, PageHeight = %d\n",
+  stp_dprintf (STP_DBG_DPL, v, "Printer model = %d\n", model);
+  stp_dprintf (STP_DBG_DPL, v, "PageWidth = %d, PageHeight = %d\n",
 		caps->custom_max_width, caps->custom_max_height);
-  stp_deprintf (STP_DBG_DPL, "MinPageWidth = %d, MinPageHeight = %d\n",
+  stp_dprintf (STP_DBG_DPL, v, "MinPageWidth = %d, MinPageHeight = %d\n",
 		caps->custom_min_width, caps->custom_min_height);
-  stp_deprintf (STP_DBG_DPL, "Resolutions: %d\n", caps->resolutions);
+  stp_dprintf (STP_DBG_DPL, v, "Resolutions: %d\n", caps->resolutions);
 
   for (i = 0; i < the_parameter_count; i++)
     if (strcmp (name, the_parameters[i].name) == 0)
@@ -650,14 +840,18 @@ dpl_parameters (const stp_vars_t * v, const char *name,
 
   if (strcmp (name, "PageSize") == 0)
     {
-      int papersizes = stp_known_papersizes ();
+      const stp_papersize_list_t *paper_sizes =
+	stpi_get_papersize_list_named("labels", "");
+      const stp_papersize_list_item_t *ptli =
+	stpi_papersize_list_get_start(paper_sizes);
       description->bounds.str = stp_string_list_create ();
-      for (i = 0; i < papersizes; i++)
+      while (ptli)
 	{
-	  const stp_papersize_t *pt = stp_get_papersize_by_index (i);
-	  if (strlen (pt->name) > 0 && dpl_papersize_valid (pt, model))
-	    stp_string_list_add_string (description->bounds.str,
-					pt->name, gettext (pt->text));
+	  const stp_papersize_t *pt = stpi_paperlist_item_get_data(ptli);
+	  if (strlen (pt->name) > 0 && dpl_papersize_valid (v, pt))
+	    stp_string_list_add_string(description->bounds.str,
+				       pt->name, gettext(pt->text));
+	  ptli = stpi_paperlist_item_next(ptli);
 	}
       description->deflt.str =
 	stp_string_list_param (description->bounds.str, 0)->name;
@@ -665,19 +859,17 @@ dpl_parameters (const stp_vars_t * v, const char *name,
   else if (strcmp (name, "Resolution") == 0)
     {
       description->bounds.str = stp_string_list_create ();
-      stp_string_list_add_string (description->bounds.str, "None",
-				  _("Default"));
       description->deflt.str =
-	dpl_val_to_string (caps->max_resolution, dpl_resolutions,
+	dpl_val_to_string (v, caps->max_resolution, dpl_resolutions,
 			   NUM_RESOLUTIONS);
       for (i = 0; i < NUM_RESOLUTIONS; i++)
 	if (caps->resolutions & dpl_resolutions[i].dpl_code)
 	  {
 	    stp_string_list_add_string
 	      (description->bounds.str,
-	       dpl_val_to_string (dpl_resolutions[i].dpl_code,
+	       dpl_val_to_string (v, dpl_resolutions[i].dpl_code,
 				  dpl_resolutions, NUM_RESOLUTIONS),
-	       dpl_val_to_text (dpl_resolutions[i].dpl_code,
+	       dpl_val_to_text (v, dpl_resolutions[i].dpl_code,
 				dpl_resolutions, NUM_RESOLUTIONS));
 	  }
     }
@@ -749,12 +941,12 @@ dpl_parameters (const stp_vars_t * v, const char *name,
  */
 static void
 internal_imageable_area (const stp_vars_t * v,	/* I */
-			 int *left,	/* O - Left position in points */
-			 int *right,	/* O - Right position in points */
-			 int *bottom,	/* O - Bottom position in points */
-			 int *top)	/* O - Top position in points */
+			 stp_dimension_t *left,	/* O - Left position in points */
+			 stp_dimension_t *right,	/* O - Right position in points */
+			 stp_dimension_t *bottom,	/* O - Bottom position in points */
+			 stp_dimension_t *top)	/* O - Top position in points */
 {
-  int width, height;		/* Size of page */
+  stp_dimension_t width, height;		/* Size of page */
 
   stp_default_media_size (v, &width, &height);
 
@@ -766,19 +958,19 @@ internal_imageable_area (const stp_vars_t * v,	/* I */
 
 static void
 dpl_imageable_area (const stp_vars_t * v,	/* I */
-		    int *left,	/* O - Left position in points */
-		    int *right,	/* O - Right position in points */
-		    int *bottom,	/* O - Bottom position in points */
-		    int *top)	/* O - Top position in points */
+		    stp_dimension_t *left,	/* O - Left position in points */
+		    stp_dimension_t *right,	/* O - Right position in points */
+		    stp_dimension_t *bottom,	/* O - Bottom position in points */
+		    stp_dimension_t *top)	/* O - Top position in points */
 {
   internal_imageable_area (v, left, right, bottom, top);
 }
 
 static void
 dpl_limit (const stp_vars_t * v,	/* I */
-	   int *width, int *height, int *min_width, int *min_height)
+	   stp_dimension_t *width, stp_dimension_t *height, stp_dimension_t *min_width, stp_dimension_t *min_height)
 {
-  const dpl_cap_t *caps = dpl_get_model_capabilities (stp_get_model_id (v));
+  const dpl_cap_t *caps = dpl_get_model_capabilities (v);
   *width = caps->custom_max_width;
   *height = caps->custom_max_height;
   *min_width = caps->custom_min_width;
@@ -791,6 +983,12 @@ dpl_describe_output (const stp_vars_t * v)
   return "Grayscale";
 }
 
+static const stp_papersize_t *
+dpl_describe_papersize(const stp_vars_t *v, const char *name)
+{
+  return stpi_get_listed_papersize(name, "labels");
+}
+
 static void
 pcx_header (stp_vars_t * v, stp_image_t * image)
 {
@@ -799,11 +997,11 @@ pcx_header (stp_vars_t * v, stp_image_t * image)
   unsigned short top;		/* y = 0 is at bottom */
   unsigned short bytes;
   short xdpi;
-  int i_xdpi;
-  int *xdpi_p = (&i_xdpi);
+  stp_resolution_t r_xdpi;
+  stp_resolution_t *xdpi_p = (&r_xdpi);
   short ydpi;
-  int i_ydpi;
-  int *ydpi_p = (&i_ydpi);
+  stp_resolution_t r_ydpi;
+  stp_resolution_t *ydpi_p = (&r_ydpi);
   int n;
   const short zero = 0;
 
@@ -815,8 +1013,8 @@ pcx_header (stp_vars_t * v, stp_image_t * image)
   /* Get resolutions */
   dpl_describe_resolution (v, xdpi_p, ydpi_p);
 
-  xdpi = (short) i_xdpi;
-  ydpi = (short) i_ydpi;
+  xdpi = (short) r_xdpi;
+  ydpi = (short) r_ydpi;
 
   bytes = (xdpi * 4 + 7 ) / 8;	/* must be an even number */
   if (bytes != (bytes & 0xfffe))
@@ -899,14 +1097,13 @@ dpl_do_print (stp_vars_t * v, stp_image_t * image)
   double v_offset = get_double_param (v, "VertOffset");
   double present = get_double_param (v, "Present");
   int y;			/* Looping vars */
-  int xdpi, ydpi;		/* Resolution */
+  stp_resolution_t xdpi, ydpi;		/* Resolution */
   int multiplier;
   unsigned char *black;		/* Black bitmap data */
   unsigned zero_mask;
   int image_height;
   int image_width;
-  int model = stp_get_model_id (v);
-  const dpl_cap_t *caps = dpl_get_model_capabilities (model);
+  const dpl_cap_t *caps = dpl_get_model_capabilities (v);
   const char *speed = stp_get_string_parameter(v, "Speed");
 
   if (!stp_verify (v))
@@ -933,7 +1130,7 @@ dpl_do_print (stp_vars_t * v, stp_image_t * image)
 
   dpl_describe_resolution (v, &xdpi, &ydpi);
 
-  stp_deprintf (STP_DBG_DPL, "dpl: resolution=%dx%d\n", xdpi, ydpi);
+  stp_dprintf (STP_DBG_DPL, v, "dpl: resolution=%dx%d\n", (int) xdpi, (int) ydpi);
   if (xdpi <= 0 || ydpi <= 0)
     {
       stp_eprintf (v, "No resolution found; cannot print.\n");
@@ -1035,7 +1232,7 @@ dpl_do_print (stp_vars_t * v, stp_image_t * image)
   if (image_height / ydpi > 4)
     {
       stp_zprintf (v, "\002M%04i\r",
-		   300 * image_height / ydpi + (3 * privdata.v_offset));
+		   300 * image_height / ((int) ydpi) + (3 * privdata.v_offset));
     }
   else
     {
@@ -1043,7 +1240,7 @@ dpl_do_print (stp_vars_t * v, stp_image_t * image)
     }
   /* set Label Width */
   stp_zprintf (v, "\002KcLW%04i\r",
-	       100 * image_width / xdpi + privdata.h_offset);
+	       100 * image_width / ((int) xdpi) + privdata.h_offset);
   if (0 != privdata.label_separator)
     {
       if (1 == privdata.label_separator)
@@ -1057,7 +1254,7 @@ dpl_do_print (stp_vars_t * v, stp_image_t * image)
       else
 	{
 	  stp_zprintf (v, "\002c%04i\r", 100 *	/* Continuous mode */
-		       image_height / ydpi + privdata.v_offset);
+		       image_height / ((int) ydpi) + privdata.v_offset);
 	}
     }
   if (privdata.darkness > -1)
@@ -1073,7 +1270,7 @@ dpl_do_print (stp_vars_t * v, stp_image_t * image)
   pcx_header (v, image);
 
 
-  stp_deprintf (STP_DBG_DPL, "Normal init\n");
+  stp_dprintf (STP_DBG_DPL, v, "Normal init\n");
 
   /*
    * Allocate memory for the raster data...
@@ -1111,7 +1308,7 @@ dpl_do_print (stp_vars_t * v, stp_image_t * image)
     }
 
   stp_puts ("\r\002L\r", v);	/* enter Label Formatting mode */
-  multiplier = dpl_get_multiplier (v);	/* dot multiplyer */
+  multiplier = dpl_get_multiplier (v);	/* dot multiplier */
   stp_zprintf (v, "D%1i%1i\r", multiplier, multiplier);
   stp_puts ("R0000\r", v);	/* 0 offset, offset handled below */
   stp_puts ("A2\r", v);		/* transparent mode */
@@ -1161,7 +1358,8 @@ static const stp_printfuncs_t print_dpl_printfuncs = {
   stp_verify_printer_params,
   NULL,
   NULL,
-  NULL
+  NULL,
+  dpl_describe_papersize
 };
 
 
@@ -1178,9 +1376,8 @@ dpl_pcx (stp_vars_t * v,	/* I - Print file or command */
   int count = 0;
   int in = 0;
   int out = 0;
-  int xdpi, ydpi;
-  int model = stp_get_model_id (v);
-  const dpl_cap_t *caps = dpl_get_model_capabilities (model);
+  stp_resolution_t xdpi, ydpi;
+  const dpl_cap_t *caps = dpl_get_model_capabilities (v);
   int i;
   int max_dpi;
   int dpi_adjust;
@@ -1260,14 +1457,14 @@ static stp_family_t print_dpl_module_data = {
 static int
 print_dpl_module_init (void)
 {
-  return stp_family_register (print_dpl_module_data.printer_list);
+  return stpi_family_register (print_dpl_module_data.printer_list);
 }
 
 
 static int
 print_dpl_module_exit (void)
 {
-  return stp_family_unregister (print_dpl_module_data.printer_list);
+  return stpi_family_unregister (print_dpl_module_data.printer_list);
 }
 
 

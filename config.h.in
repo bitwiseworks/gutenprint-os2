@@ -135,21 +135,23 @@
 /* Define to 1 if you have the `usleep' function. */
 #undef HAVE_USLEEP
 
-/* Define to the sub-directory in which libtool stores uninstalled libraries.
-   */
+/* Define to the sub-directory where libtool stores uninstalled libraries. */
 #undef LT_OBJDIR
+
+/* Printers to test in minimal run */
+#undef MINIMAL_PRINTERS_TO_TEST
 
 /* Build a modular libgutenprint */
 #undef MODULE
-
-/* Define to 1 if your C compiler doesn't accept -c and -o together. */
-#undef NO_MINUS_C_MINUS_O
 
 /* The operating system to build for */
 #undef OSTYPE
 
 /* Name of package */
 #undef PACKAGE
+
+/* */
+#undef PACKAGE_BIN_DIR
 
 /* Define to the address where bug reports for this package should be sent. */
 #undef PACKAGE_BUGREPORT
@@ -186,9 +188,6 @@
 
 /* Package release date. */
 #undef RELEASE_DATE
-
-/* Define as the return type of signal handlers (`int' or `void'). */
-#undef RETSIGTYPE
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS

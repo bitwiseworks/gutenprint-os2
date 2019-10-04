@@ -14,8 +14,7 @@
  *   for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  * Revision History:
  *
@@ -34,13 +33,13 @@
 /*
  * Size of buffer used to read file
  */
-#define READ_SIZE 1024
+#define READ_SIZE 16384
 
 /*
  * Largest data attached to a command. 1024 means that we can have up to 8192
  * pixels in a row
  */
-#define MAX_DATA 1024
+#define MAX_DATA 16384
 
 FILE *read_fd,*write_fd;
 char read_buffer[READ_SIZE];
@@ -49,6 +48,7 @@ char initial_command[3];
 int initial_command_index;
 char final_command;
 int numeric_arg;
+int max_data_len = 0;
 
 int read_pointer;
 int read_size;
@@ -62,6 +62,7 @@ int skip_output = 0;
 
 typedef struct {
     int colour_type;		/* Mono, 3/4 colour */
+    int pixel_type;		/* Mono, CMY, RGB */
     int black_depth;		/* 2 level, 4 level */
     int cyan_depth;		/* 2 level, 4 level */
     int magenta_depth;		/* 2 level, 4 level */
@@ -93,43 +94,92 @@ typedef struct {
     int buffer_length;
     int active_length;			/* Length of output data */
     int output_depth;
+    int input_depth;
+    int pixels_depth;
 } output_t;
 
 #define PCL_MONO 1
 #define PCL_CMY 3
 #define PCL_CMYK 4
 #define PCL_CMYKcm 6
+#define PCL_RGB 65
 
 #define PCL_COMPRESSION_NONE 0
 #define PCL_COMPRESSION_RUNLENGTH 1
 #define PCL_COMPRESSION_TIFF 2
 #define PCL_COMPRESSION_DELTA 3
+#define PCL_COMPRESSION_ADAPTIVE 5
 #define PCL_COMPRESSION_CRDR 9		/* Compressed row delta replacement */
 
 /* PCL COMMANDS */
 
 typedef enum {
-	PCL_RESET = 1,PCL_MEDIA_SIZE,PCL_PERF_SKIP,PCL_TOP_MARGIN,PCL_MEDIA_TYPE,
-	PCL_MEDIA_SOURCE,PCL_SHINGLING,PCL_RASTERGRAPHICS_QUALITY,PCL_DEPLETION,
-	PCL_CONFIGURE,PCL_RESOLUTION,PCL_COLOURTYPE,PCL_COMPRESSIONTYPE,
-	PCL_LEFTRASTER_POS,PCL_TOPRASTER_POS,PCL_RASTER_WIDTH,PCL_RASTER_HEIGHT,
-	PCL_START_RASTER,PCL_END_RASTER,PCL_END_COLOUR_RASTER,PCL_DATA,PCL_DATA_LAST,
-	PCL_PRINT_QUALITY,PCL_ENTER_PJL,PCL_GRAY_BALANCE,PCL_DRIVER_CONFIG,
-	PCL_PAGE_ORIENTATION,PCL_VERTICAL_CURSOR_POSITIONING_BY_DOTS,
-	PCL_HORIZONTAL_CURSOR_POSITIONING_BY_DOTS,PCL_UNIT_OF_MEASURE,
-	PCL_RELATIVE_VERTICAL_PIXEL_MOVEMENT,PCL_PALETTE_CONFIGURATION,
-	PCL_LPI,PCL_CPI,PCL_PAGE_LENGTH,PCL_NUM_COPIES,PCL_DUPLEX,
-	PCL_MEDIA_SIDE,RTL_CONFIGURE,PCL_ENTER_PCL,PCL_ENTER_HPGL2,
-	PCL_NEGATIVE_MOTION,PCL_MEDIA_DEST,PCL_JOB_SEPARATION,
-	PCL_LEFT_OFFSET_REGISTRATION,PCL_TOP_OFFSET_REGISTRATION,
-	PCL_PRINT_DIRECTION,PCL_LEFT_MARGIN,PCL_RIGHT_MARGIN,
-	PCL_RESET_MARGINS,PCL_TEXT_LENGTH
+	PCL_RESET = 1,
+	PCL_MEDIA_SIZE,
+	PCL_PERF_SKIP,
+	PCL_TOP_MARGIN,
+	PCL_MEDIA_TYPE,
+	PCL_MEDIA_SOURCE,
+	PCL_SHINGLING,
+	PCL_RASTERGRAPHICS_QUALITY,
+	PCL_DEPLETION,
+	PCL_CONFIGURE,
+	PCL_RESOLUTION,
+	PCL_COLOURTYPE,
+	PCL_COMPRESSIONTYPE,
+	PCL_LEFTRASTER_POS,
+	PCL_TOPRASTER_POS,
+	PCL_RASTER_WIDTH,
+	PCL_RASTER_HEIGHT,
+	PCL_START_RASTER,
+	PCL_END_RASTER,
+	PCL_END_COLOUR_RASTER,
+	PCL_DATA,
+	PCL_DATA_LAST,
+	PCL_PRINT_QUALITY,
+	PCL_ENTER_PJL,
+	PCL_GRAY_BALANCE,
+	PCL_DRIVER_CONFIG,
+	PCL_PAGE_ORIENTATION,
+	PCL_VERTICAL_CURSOR_POSITIONING_BY_DOTS,
+	PCL_HORIZONTAL_CURSOR_POSITIONING_BY_DOTS,
+	PCL_UNIT_OF_MEASURE,
+	PCL_RELATIVE_VERTICAL_PIXEL_MOVEMENT,
+	PCL_PALETTE_CONFIGURATION,
+	PCL_LPI,
+	PCL_CPI,
+	PCL_PAGE_LENGTH,
+	PCL_NUM_COPIES,
+	PCL_DUPLEX,
+	PCL_MEDIA_SIDE,
+	PCL_RTL_CONFIGURE,
+	PCL_ENTER_PCL,
+	PCL_ENTER_HPGL2,
+	PCL_NEGATIVE_MOTION,
+	PCL_MEDIA_DEST,
+	PCL_JOB_SEPARATION,
+	PCL_LEFT_OFFSET_REGISTRATION,
+	PCL_TOP_OFFSET_REGISTRATION,
+	PCL_PRINT_DIRECTION,
+	PCL_LEFT_MARGIN,
+	PCL_RIGHT_MARGIN,
+	PCL_RESET_MARGINS,PCL_TEXT_LENGTH,
+	/* Added by rlk 2017-12-25 */
+	PCL_RASTER_RENDER,	/* Rendering algorithm */
+	PCL_COLOR_COMPONENT_1,	/* Color component 1 */
+	PCL_COLOR_COMPONENT_2,	/* Color component 2 */
+	PCL_COLOR_COMPONENT_3,	/* Color component 3 */
+	PCL_ASSIGN_COLOR_INDEX,
+	PCL_SET_FOREGROUND_COLOR,
+	PCL_SET_VMI,
+	PCL_SEED_ROW_SOURCE,
 } command_t;
 
 typedef struct {
   const char initial_command[3];		/* First part of command */
   const char final_command;			/* Last part of command */
   int has_data;					/* Data follows */
+  int clean_state;				/* Leaves printer state clean */
   command_t command;				/* Command name */
   const char *description;			/* Text for printing */
 } commands_t;
@@ -137,79 +187,90 @@ typedef struct {
 const commands_t pcl_commands[] =
     {
 /* Two-character sequences ESC <x> */
-	{ "E", '\0', 0, PCL_RESET, "PCL RESET" },
-	{ "9", '\0', 0, PCL_RESET_MARGINS, "Reset Margins" },
-	{ "%", 'A', 0, PCL_ENTER_PCL, "PCL mode" },
-	{ "%", 'B', 0, PCL_ENTER_HPGL2, "HPGL/2 mode" },
-	{ "%", 'X', 0, PCL_ENTER_PJL, "UEL/Enter PJL mode" },
+	{ "E", '\0', 0, 1, PCL_RESET, "PCL RESET" },
+	{ "9", '\0', 0, 0, PCL_RESET_MARGINS, "Reset Margins" },
+	{ "%", 'A', 0, 0, PCL_ENTER_PCL, "PCL mode" },
+	{ "%", 'B', 0, 0, PCL_ENTER_HPGL2, "HPGL/2 mode" },
+	{ "%", 'X', 0, 0, PCL_ENTER_PJL, "UEL/Enter PJL mode" },
 /* Parameterised sequences */
 /* Raster positioning */
-	{ "&a", 'G', 0, PCL_MEDIA_SIDE, "Set Media Side" },
-	{ "&a", 'H', 0, PCL_LEFTRASTER_POS, "Left Raster Position" },
-	{ "&a", 'L', 0, PCL_LEFT_MARGIN, "Left Margin by Column" },
-	{ "&a", 'M', 0, PCL_RIGHT_MARGIN, "Right Margin by Column" },
-	{ "&a", 'N', 0, PCL_NEGATIVE_MOTION, "Negative Motion" },
-	{ "&a", 'P', 0, PCL_PRINT_DIRECTION, "Print Direction" },
-	{ "&a", 'V', 0, PCL_TOPRASTER_POS, "Top Raster Position" },
+	{ "&a", 'G', 0, 0, PCL_MEDIA_SIDE, "Set Media Side" },
+	{ "&a", 'H', 0, 0, PCL_LEFTRASTER_POS, "Left Raster Position" },
+	{ "&a", 'L', 0, 0, PCL_LEFT_MARGIN, "Left Margin by Column" },
+	{ "&a", 'M', 0, 0, PCL_RIGHT_MARGIN, "Right Margin by Column" },
+	{ "&a", 'N', 0, 0, PCL_NEGATIVE_MOTION, "Negative Motion" },
+	{ "&a", 'P', 0, 0, PCL_PRINT_DIRECTION, "Print Direction" },
+	{ "&a", 'V', 0, 0, PCL_TOPRASTER_POS, "Top Raster Position" },
 /* Characters */
-	{ "&k", 'H', 0, PCL_CPI, "Characters per Inch" },
+	{ "&k", 'H', 0, 0, PCL_CPI, "Characters per Inch" },
 /* Media */
-	{ "&l", 'A', 0, PCL_MEDIA_SIZE , "Media Size" },
-	{ "&l", 'D', 0, PCL_LPI , "Lines per Inch" },
-	{ "&l", 'E', 0, PCL_TOP_MARGIN , "Top Margin" },
-	{ "&l", 'F', 0, PCL_TEXT_LENGTH , "Text Length" },
-	{ "&l", 'G', 0, PCL_MEDIA_DEST, "Media Destination" },
-	{ "&l", 'H', 0, PCL_MEDIA_SOURCE, "Media Source" },
-	{ "&l", 'L', 0, PCL_PERF_SKIP , "Perf. Skip" },
-	{ "&l", 'M', 0, PCL_MEDIA_TYPE , "Media Type" },
-	{ "&l", 'O', 0, PCL_PAGE_ORIENTATION, "Page Orientation" },
-	{ "&l", 'P', 0, PCL_PAGE_LENGTH, "Page Length in Lines" },
-	{ "&l", 'S', 0, PCL_DUPLEX, "Duplex mode" },
-	{ "&l", 'T', 0, PCL_JOB_SEPARATION, "Job Separation" },
-	{ "&l", 'U', 0, PCL_LEFT_OFFSET_REGISTRATION, "Left Offset Registration" },
-	{ "&l", 'X', 0, PCL_NUM_COPIES, "Number of copies" },
-	{ "&l", 'Z', 0, PCL_TOP_OFFSET_REGISTRATION, "Top Offset Registration" },
+	{ "&l", 'A', 0, 0, PCL_MEDIA_SIZE , "Media Size" },
+	{ "&l", 'C', 0, 0, PCL_SET_VMI, "Set Vertical Line Spacing" },
+	{ "&l", 'D', 0, 0, PCL_LPI , "Lines per Inch" },
+	{ "&l", 'E', 0, 0, PCL_TOP_MARGIN , "Top Margin" },
+	{ "&l", 'F', 0, 0, PCL_TEXT_LENGTH , "Text Length" },
+	{ "&l", 'G', 0, 0, PCL_MEDIA_DEST, "Media Destination" },
+	{ "&l", 'H', 0, 0, PCL_MEDIA_SOURCE, "Media Source" },
+	{ "&l", 'L', 0, 0, PCL_PERF_SKIP , "Perf. Skip" },
+	{ "&l", 'M', 0, 0, PCL_MEDIA_TYPE , "Media Type" },
+	{ "&l", 'O', 0, 0, PCL_PAGE_ORIENTATION, "Page Orientation" },
+	{ "&l", 'P', 0, 0, PCL_PAGE_LENGTH, "Page Length in Lines" },
+	{ "&l", 'S', 0, 0, PCL_DUPLEX, "Duplex mode" },
+	{ "&l", 'T', 0, 0, PCL_JOB_SEPARATION, "Job Separation" },
+	{ "&l", 'U', 0, 0, PCL_LEFT_OFFSET_REGISTRATION, "Left Offset Registration" },
+	{ "&l", 'X', 0, 0, PCL_NUM_COPIES, "Number of copies" },
+	{ "&l", 'Z', 0, 0, PCL_TOP_OFFSET_REGISTRATION, "Top Offset Registration" },
 /* Units */
-	{ "&u", 'D', 0, PCL_UNIT_OF_MEASURE, "Unit of Measure" },	/* from bpd05446 */
+	{ "&u", 'D', 0, 0, PCL_UNIT_OF_MEASURE, "Unit of Measure" },	/* from bpd05446 */
 /* Raster data */
-	{ "*b", 'B', 0, PCL_GRAY_BALANCE, "Gray Balance" },	/* from PCL Developer's Guide 6.0 */
-	{ "*b", 'M', 0, PCL_COMPRESSIONTYPE, "Compression Type" },
-	{ "*b", 'V', 1, PCL_DATA, "Data, intermediate" },
-	{ "*b", 'W', 1, PCL_DATA_LAST, "Data, last" },
-	{ "*b", 'Y', 0, PCL_RELATIVE_VERTICAL_PIXEL_MOVEMENT, "Relative Vertical Pixel Movement" },
+	{ "*b", 'B', 0, 0, PCL_GRAY_BALANCE, "Gray Balance" },	/* from PCL Developer's Guide 6.0 */
+	{ "*b", 'M', 0, 0, PCL_COMPRESSIONTYPE, "Compression Type" },
+	{ "*b", 'S', 0, 0, PCL_SEED_ROW_SOURCE, "Seed row # source" },
+	{ "*b", 'V', 1, 0, PCL_DATA, "Data, intermediate" },
+	{ "*b", 'W', 1, 0, PCL_DATA_LAST, "Data, last" },
+	{ "*b", 'Y', 0, 0, PCL_RELATIVE_VERTICAL_PIXEL_MOVEMENT, "Relative Vertical Pixel Movement" },
 /* Palette */
-	{ "*d", 'W', 1, PCL_PALETTE_CONFIGURATION, "Palette Configuration" },
+	{ "*d", 'W', 1, 0, PCL_PALETTE_CONFIGURATION, "Palette Configuration" },
 /* Plane configuration */
-	{ "*g", 'W', 1, PCL_CONFIGURE, "Configure Raster Data" },
+	{ "*g", 'W', 1, 0, PCL_CONFIGURE, "Configure Raster Data" },
 /* Raster Graphics */
-	{ "*o", 'D', 0, PCL_DEPLETION, "Depletion" },
-	{ "*o", 'M', 0, PCL_PRINT_QUALITY, "Print Quality" },
-	{ "*o", 'Q', 0, PCL_SHINGLING, "Raster Graphics Shingling" },
-	{ "*o", 'W', 1, PCL_DRIVER_CONFIG, "Driver Configuration Command" },
+	{ "*o", 'D', 0, 0, PCL_DEPLETION, "Depletion" },
+	{ "*o", 'M', 0, 0, PCL_PRINT_QUALITY, "Print Quality" },
+	{ "*o", 'Q', 0, 0, PCL_SHINGLING, "Raster Graphics Shingling" },
+	{ "*o", 'W', 1, 0, PCL_DRIVER_CONFIG, "Driver Configuration Command" },
 /* Cursor Positioning */
-	{ "*p", 'X', 0, PCL_HORIZONTAL_CURSOR_POSITIONING_BY_DOTS, "Horizontal Cursor Positioning by Dots" },
-	{ "*p", 'Y', 0, PCL_VERTICAL_CURSOR_POSITIONING_BY_DOTS, "Vertical Cursor Positioning by Dots" },
+	{ "*p", 'X', 0, 0, PCL_HORIZONTAL_CURSOR_POSITIONING_BY_DOTS, "Horizontal Cursor Positioning by Dots" },
+	{ "*p", 'Y', 0, 0, PCL_VERTICAL_CURSOR_POSITIONING_BY_DOTS, "Vertical Cursor Positioning by Dots" },
 /* Raster graphics */
-	{ "*r", 'A', 0, PCL_START_RASTER, "Start Raster Graphics" },
-	{ "*r", 'B', 0, PCL_END_RASTER, "End Raster Graphics"},
-	{ "*r", 'C', 0, PCL_END_COLOUR_RASTER, "End Colour Raster Graphics" },
-	{ "*r", 'Q', 0, PCL_RASTERGRAPHICS_QUALITY, "Raster Graphics Quality" },
-	{ "*r", 'S', 0, PCL_RASTER_WIDTH, "Raster Width" },
-	{ "*r", 'T', 0, PCL_RASTER_HEIGHT, "Raster Height" },
-	{ "*r", 'U', 0, PCL_COLOURTYPE, "Colour Type" },
+	{ "*r", 'A', 0, 0, PCL_START_RASTER, "Start Raster Graphics" },
+	{ "*r", 'B', 0, 0, PCL_END_RASTER, "End Raster Graphics"},
+	{ "*r", 'C', 0, 0, PCL_END_COLOUR_RASTER, "End Colour Raster Graphics" },
+	{ "*r", 'Q', 0, 0, PCL_RASTERGRAPHICS_QUALITY, "Raster Graphics Quality" },
+	{ "*r", 'S', 0, 0, PCL_RASTER_WIDTH, "Raster Width" },
+	{ "*r", 'T', 0, 0, PCL_RASTER_HEIGHT, "Raster Height" },
+	{ "*r", 'U', 0, 0, PCL_COLOURTYPE, "Colour Type" },
 /* Resolution */
-	{ "*t", 'R', 0, PCL_RESOLUTION, "Resolution" },
+	{ "*t", 'R', 0, 0, PCL_RESOLUTION, "Resolution" },
+	{ "*t", 'J', 0, 0, PCL_RASTER_RENDER, "Render Algorithm" },
 /* RTL/PCL5 */
-	{ "*v", 'W', 1, RTL_CONFIGURE, "RTL Configure Image Data" },
+	{ "*v", 'W', 1, 0, PCL_RTL_CONFIGURE, "RTL Configure Image Data" },
+	{ "*v", 'A', 0, 0, PCL_COLOR_COMPONENT_1, "Color Component 1" },
+	{ "*v", 'B', 0, 0, PCL_COLOR_COMPONENT_2, "Color Component 2" },
+	{ "*v", 'C', 0, 0, PCL_COLOR_COMPONENT_3, "Color Component 3" },
+	{ "*v", 'I', 0, 0, PCL_ASSIGN_COLOR_INDEX, "Assign Color Index" },
+	{ "*v", 'S', 0, 0, PCL_SET_FOREGROUND_COLOR, "Set Foreground Color" },
    };
 
 int pcl_find_command (void);
 void fill_buffer (void);
 void pcl_read_command (void);
 void write_grey (output_t *output, image_t *image);
+void write_pixel (output_t *output, image_t *image);
 void write_colour (output_t *output, image_t *image);
 int decode_tiff (char *in_buffer, int data_length, char *decode_buf,
                  int maxlen);
+int decode_delta (char *in_buffer, int data_length, char *decode_buf,
+		  int maxlen);
 void pcl_reset (image_t *i);
 int depth_to_rows (int depth);
 
@@ -327,19 +388,20 @@ void pcl_read_command(void)
  */
 
     if (combined_command == 0) {
-
+	int non_ff_skipped_chars = 0;
 	if(c != (char) 0x1b) {
-
-	    fprintf(stderr, "ERROR: No ESC found (out of sync?) searching... ");
 
 /*
  * all we can do is to chew through the file looking for another ESC.
  */
 
 	    skipped_chars = 0;
+	    fprintf(stderr, "        ");
 	    while (c != (char) 0x1b) {
 		if (c == (char) 0x0c)
-		    fprintf(stderr, "FF ");
+		    fprintf(stderr, " FF");
+		else
+		    non_ff_skipped_chars++;
 		skipped_chars++;
 		fill_buffer();
 		if (eof == 1) {
@@ -348,7 +410,10 @@ void pcl_read_command(void)
 		}
 		c = read_buffer[read_pointer++];
 	    }
-	    fprintf(stderr, "%d characters skipped.\n", skipped_chars);
+	    if (non_ff_skipped_chars != 0)
+	        fprintf(stderr, "ERROR: No ESC found (out of sync?) searching... ");
+	    fprintf(stderr, " %d character%s skipped.\n", skipped_chars,
+		    skipped_chars == 1 ? "" : "s");
 	}
 
 /*
@@ -436,7 +501,7 @@ void pcl_read_command(void)
 
 		    if (initial_command[0] == '%') {
 #ifdef DEBUG
-			fprintf(stderr, "ESC%% commmand\n");
+			fprintf(stderr, "ESC%% command\n");
 #endif
 			initial_command[initial_command_index] = '\0';
 		    }
@@ -462,7 +527,7 @@ void pcl_read_command(void)
 /*
    We get here if either this is a combined sequence, or we have processed
    the beginning of a parameterised sequence. There is an optional number
-   next, which may be preceeded by "+" or "-". FIXME We should also handle
+   next, which may be preceded by "+" or "-". FIXME We should also handle
    decimal points.
 */
 
@@ -553,6 +618,31 @@ void write_grey(output_t *output,	/* I: data */
     (void) fwrite(&tb[0], sizeof(char), (size_t) crumbs, write_fd);
 }
 
+
+/*
+ * write_pixel() - write out one line of pixel PNM image
+ */
+
+/* FIXME - other than direct by pixel */
+void write_pixel(output_t *output,	/* I: data */
+		image_t *image)		/* I: Image data */
+{
+  unsigned char *buf = (unsigned char *) (output->black_bufs[0]);
+  int i;
+  if (image->colour_type == PCL_CMY) {
+    for (i = 0; i < image->image_width * 3; i++) {
+      buf[i] = -buf[i];
+    }
+  }
+  (void) fwrite(buf, sizeof(char), image->image_width * 3, write_fd);
+  /* Needed for delta compression */
+  if (image->colour_type == PCL_CMY) {
+    for (i = 0; i < image->image_width * 3; i++) {
+      buf[i] = -buf[i];
+    }
+  }
+}
+
 /*
  * write_colour() - Write out one row of RGB PNM data.
  */
@@ -573,6 +663,7 @@ void write_colour(output_t *output,		/* I: Data buffers */
     char *yellow_buf;
     char *black_buf;
 
+    return;
     cyan_buf = output->cyan_bufs[0];
     magenta_buf = output->magenta_bufs[0];
     yellow_buf = output->yellow_bufs[0];
@@ -581,7 +672,6 @@ void write_colour(output_t *output,		/* I: Data buffers */
     else
 	black_buf = NULL;
 
-#ifdef DEBUG
     fprintf(stderr, "Data Length: %d, wholebytes: %d, crumbs: %d, planes: %d\n",
 	output->active_length, wholebytes, crumbs, image->colour_type);
 
@@ -607,78 +697,78 @@ void write_colour(output_t *output,		/* I: Data buffers */
 	}
 	fprintf(stderr, "\n");
     }
-#endif
 
-    if (image->colour_type == PCL_CMY) {
-	for (i=0; i < wholebytes; i++) {
-	    for (j=0,jj=0; j < 8; j++,jj+=3) {
-		tb[jj] = (((cyan_buf[i] >> (7-j)) & 1));
+    if (output->pixels_depth == 1) {
+	if (image->colour_type == PCL_CMY) {
+	    for (i=0; i < wholebytes; i++) {
+		for (j=0,jj=0; j < 8; j++,jj+=3) {
+		    tb[jj] = (((cyan_buf[i] >> (7-j)) & 1));
+		    tb[jj] = output->output_depth - tb[jj];
+		    tb[jj+1] = (((magenta_buf[i] >> (7-j)) & 1));
+		    tb[jj+1] = output->output_depth - tb[jj+1];
+		    tb[jj+2] = (((yellow_buf[i] >> (7-j)) & 1));
+		    tb[jj+2] = output->output_depth - tb[jj+2];
+		}
+		(void) fwrite(&tb[0], sizeof(char), (size_t) (8*3), write_fd);
+	    }
+	    for (j=0,jj=0; j < crumbs; j++,jj+=3) {
+		tb[jj] = (((cyan_buf[wholebytes] >> (7-j)) & 1));
 		tb[jj] = output->output_depth - tb[jj];
-		tb[jj+1] = (((magenta_buf[i] >> (7-j)) & 1));
+		tb[jj+1] = (((magenta_buf[wholebytes] >> (7-j)) & 1));
 		tb[jj+1] = output->output_depth - tb[jj+1];
-		tb[jj+2] = (((yellow_buf[i] >> (7-j)) & 1));
+		tb[jj+2] = (((yellow_buf[wholebytes] >> (7-j)) & 1));
 		tb[jj+2] = output->output_depth - tb[jj+2];
 	    }
-	    (void) fwrite(&tb[0], sizeof(char), (size_t) (8*3), write_fd);
+	    (void) fwrite(&tb[0], sizeof(char), (size_t) crumbs*3, write_fd);
 	}
-	for (j=0,jj=0; j < crumbs; j++,jj+=3) {
-	    tb[jj] = (((cyan_buf[wholebytes] >> (7-j)) & 1));
-	    tb[jj] = output->output_depth - tb[jj];
-	    tb[jj+1] = (((magenta_buf[wholebytes] >> (7-j)) & 1));
-	    tb[jj+1] = output->output_depth - tb[jj+1];
-	    tb[jj+2] = (((yellow_buf[wholebytes] >> (7-j)) & 1));
-	    tb[jj+2] = output->output_depth - tb[jj+2];
-	}
-	(void) fwrite(&tb[0], sizeof(char), (size_t) crumbs*3, write_fd);
-    }
-    else {
-	for (i=0; i < wholebytes; i++) {
-	    for (j=0,jj=0; j < 8; j++,jj+=3) {
-#if !defined OUTPUT_CMYK_ONLY_K && !defined OUTPUT_CMYK_ONLY_CMY
-		tb[jj] = ((((cyan_buf[i]|black_buf[i]) >> (7-j)) & 1));
-		tb[jj+1] = ((((magenta_buf[i]|black_buf[i]) >> (7-j)) & 1));
-		tb[jj+2] = ((((yellow_buf[i]|black_buf[i]) >> (7-j)) & 1));
-#endif
-#ifdef OUTPUT_CMYK_ONLY_K
-		tb[jj] = (((black_buf[i] >> (7-j)) & 1));
-		tb[jj+1] = (((black_buf[i] >> (7-j)) & 1));
-		tb[jj+2] = (((black_buf[i] >> (7-j)) & 1));
-#endif
-#ifdef OUTPUT_CMYK_ONLY_CMY
-		tb[jj] = (((cyan_buf[i] >> (7-j)) & 1));
-		tb[jj+1] = (((magenta_buf[i] >> (7-j)) & 1));
-		tb[jj+2] = (((yellow_buf[i] >> (7-j)) & 1));
-#endif
+	else {
+	    for (i=0; i < wholebytes; i++) {
+		for (j=0,jj=0; j < 8; j++,jj+=3) {
+    #if !defined OUTPUT_CMYK_ONLY_K && !defined OUTPUT_CMYK_ONLY_CMY
+		    tb[jj] = ((((cyan_buf[i]|black_buf[i]) >> (7-j)) & 1));
+		    tb[jj+1] = ((((magenta_buf[i]|black_buf[i]) >> (7-j)) & 1));
+		    tb[jj+2] = ((((yellow_buf[i]|black_buf[i]) >> (7-j)) & 1));
+    #endif
+    #ifdef OUTPUT_CMYK_ONLY_K
+		    tb[jj] = (((black_buf[i] >> (7-j)) & 1));
+		    tb[jj+1] = (((black_buf[i] >> (7-j)) & 1));
+		    tb[jj+2] = (((black_buf[i] >> (7-j)) & 1));
+    #endif
+    #ifdef OUTPUT_CMYK_ONLY_CMY
+		    tb[jj] = (((cyan_buf[i] >> (7-j)) & 1));
+		    tb[jj+1] = (((magenta_buf[i] >> (7-j)) & 1));
+		    tb[jj+2] = (((yellow_buf[i] >> (7-j)) & 1));
+    #endif
+		    tb[jj] = output->output_depth - tb[jj];
+		    tb[jj+1] = output->output_depth - tb[jj+1];
+		    tb[jj+2] = output->output_depth - tb[jj+2];
+		}
+		(void) fwrite(&tb[0], sizeof(char), (size_t) (8*3), write_fd);
+	    }
+	    for (j=0,jj=0; j < crumbs; j++,jj+=3) {
+    #if !defined OUTPUT_CMYK_ONLY_K && !defined OUTPUT_CMYK_ONLY_CMY
+		tb[jj] = ((((cyan_buf[wholebytes]|black_buf[wholebytes]) >> (7-j)) & 1));
+		tb[jj+1] = ((((magenta_buf[wholebytes]|black_buf[wholebytes]) >> (7-j)) & 1));
+		tb[jj+2] = ((((yellow_buf[wholebytes]|black_buf[wholebytes]) >> (7-j)) & 1));
+    #endif
+    #ifdef OUTPUT_CMYK_ONLY_K
+		tb[jj] = (((black_buf[wholebytes] >> (7-j)) & 1));
+		tb[jj+1] = (((black_buf[wholebytes] >> (7-j)) & 1));
+		tb[jj+2] = (((black_buf[wholebytes] >> (7-j)) & 1));
+    #endif
+    #ifdef OUTPUT_CMYK_ONLY_CMY
+		tb[jj] = (((cyan_buf[wholebytes] >> (7-j)) & 1));
+		tb[jj+1] = (((magenta_buf[wholebytes] >> (7-j)) & 1));
+		tb[jj+2] = (((yellow_buf[wholebytes] >> (7-j)) & 1));
+    #endif
 		tb[jj] = output->output_depth - tb[jj];
 		tb[jj+1] = output->output_depth - tb[jj+1];
 		tb[jj+2] = output->output_depth - tb[jj+2];
 	    }
-	    (void) fwrite(&tb[0], sizeof(char), (size_t) (8*3), write_fd);
+	    (void) fwrite(&tb[0], sizeof(char), (size_t) crumbs*3, write_fd);
 	}
-	for (j=0,jj=0; j < crumbs; j++,jj+=3) {
-#if !defined OUTPUT_CMYK_ONLY_K && !defined OUTPUT_CMYK_ONLY_CMY
-	    tb[jj] = ((((cyan_buf[wholebytes]|black_buf[wholebytes]) >> (7-j)) & 1));
-	    tb[jj+1] = ((((magenta_buf[wholebytes]|black_buf[wholebytes]) >> (7-j)) & 1));
-	    tb[jj+2] = ((((yellow_buf[wholebytes]|black_buf[wholebytes]) >> (7-j)) & 1));
-#endif
-#ifdef OUTPUT_CMYK_ONLY_K
-	    tb[jj] = (((black_buf[wholebytes] >> (7-j)) & 1));
-	    tb[jj+1] = (((black_buf[wholebytes] >> (7-j)) & 1));
-	    tb[jj+2] = (((black_buf[wholebytes] >> (7-j)) & 1));
-#endif
-#ifdef OUTPUT_CMYK_ONLY_CMY
-	    tb[jj] = (((cyan_buf[wholebytes] >> (7-j)) & 1));
-	    tb[jj+1] = (((magenta_buf[wholebytes] >> (7-j)) & 1));
-	    tb[jj+2] = (((yellow_buf[wholebytes] >> (7-j)) & 1));
-#endif
-	    tb[jj] = output->output_depth - tb[jj];
-	    tb[jj+1] = output->output_depth - tb[jj+1];
-	    tb[jj+2] = output->output_depth - tb[jj+2];
-	}
-	(void) fwrite(&tb[0], sizeof(char), (size_t) crumbs*3, write_fd);
     }
 }
-
 /*
  * decode_tiff() - Uncompress a TIFF encoded buffer
  */
@@ -716,7 +806,7 @@ int decode_tiff(char *in_buffer,		/* I: Data buffer */
 	    fprintf(stderr, "\n");
 #endif
 	    if ((dpos + count + 1) > maxlen) {
-		fprintf(stderr, "ERROR: Too much expanded data (%d)!\n", dpos + count + 1);
+		fprintf(stderr, "ERROR: Too much expanded data (%d > %d)!\n", dpos + count + 1, maxlen);
 		exit(EXIT_FAILURE);
 	    }
 	    memcpy(&decode_buf[dpos], &in_buffer[pos+1], (size_t) (count + 1));
@@ -728,7 +818,7 @@ int decode_tiff(char *in_buffer,		/* I: Data buffer */
 	    fprintf(stderr, "%02x repeated %d times\n", (unsigned char) in_buffer[pos + 1], 1 - count);
 #endif
 	    if ((dpos + 1 - count) > maxlen) {
-		fprintf(stderr, "ERROR: Too much expanded data (%d)!\n", dpos + 1 - count);
+		fprintf(stderr, "ERROR: Too much expanded data (%d > %d)!\n", dpos + 1 - count, maxlen);
 		exit(EXIT_FAILURE);
 	    }
 	    memset(&decode_buf[dpos], in_buffer[pos + 1], (size_t) (1 - count));
@@ -752,12 +842,92 @@ int decode_tiff(char *in_buffer,		/* I: Data buffer */
 }
 
 /*
+ * decode_delta() - Uncompress a delta encoded buffer
+ */
+
+int decode_delta(char *in_buffer,		/* I: Data buffer */
+		 int data_length,		/* I: Length of data */
+		 char *decode_buf,		/* I/O: decoded data */
+		 int maxlen)			/* I: Max length of decode_buf */
+{
+
+    unsigned command_byte = 0;
+    unsigned delta_bytes = 0;
+    unsigned offset_from_last = 0;
+    unsigned next_offset = 0;
+
+    int pos = 0;
+    int dpos = 0;
+#ifdef DEBUG
+    int i = 0;
+    int j = 0;
+#endif
+
+#ifdef DEBUG
+    fprintf(stderr, ">>>Decode delta %p %d %p %d\n", in_buffer, data_length,
+	    decode_buf, maxlen);
+#endif
+    while(pos < data_length ) {
+
+	command_byte = in_buffer[pos];
+	delta_bytes = (((unsigned char) command_byte) >> 5) + 1;
+	offset_from_last = (command_byte & ((1 << 5) - 1));
+	if (offset_from_last == 31) {
+	  do {
+	    next_offset = (unsigned char) in_buffer[++pos];
+	    offset_from_last += next_offset;
+	  } while (next_offset == 0xff);
+	}
+#ifdef DEBUG
+	fprintf(stderr, "%d: command %02x (delta %d, offset %d)\n", i,
+		(unsigned char) command_byte, delta_bytes, offset_from_last);
+	fprintf(stderr, "    pos %d dpos %d data_length %d maxlen %d\n",
+		pos, dpos, data_length, maxlen);
+#endif
+	pos++;
+	if (data_length - pos < delta_bytes) {
+	    fprintf(stderr, "ERROR: data overrun in delta (delta %d, remaining %d)\n",
+		    delta_bytes, data_length - pos);
+	}
+	dpos += offset_from_last;
+	(void) memcpy(decode_buf + dpos, in_buffer + pos, delta_bytes);
+#ifdef DEBUG
+	fprintf(stderr, "    ");
+	for (j = 0; j < delta_bytes; j++) {
+	    fprintf(stderr, "%02x ", (unsigned char) in_buffer[pos + j]);
+	}
+	fprintf(stderr, "\n");
+#endif
+	pos += delta_bytes;
+	dpos += delta_bytes;
+#ifdef DEBUG
+	    fprintf(stderr, "    pos %d dpos %d data_length %d maxlen %d\n",
+		    pos, dpos, data_length, maxlen);
+	i++;
+#endif
+    }
+    /*
+    fprintf(stderr, "   Decode delta %d %d %d\n", pos, data_length, dpos);
+    */
+
+#ifdef DEBUG
+    fprintf(stderr, "DELTAOUT: ");
+    for (i=0; i< dpos; i++) {
+	fprintf(stderr, "%02x ", (unsigned char) decode_buf[i]);
+    }
+    fprintf(stderr, "\n");
+#endif
+    return(dpos);
+}
+
+/*
  * pcl_reset() - Rest image parameters to default
  */
 
 void pcl_reset(image_t *i)
 {
     i->colour_type = PCL_MONO;
+    i->pixel_type = PCL_MONO;
     i->black_depth = 2;		/* Assume mono */
     i->cyan_depth = 0;
     i->magenta_depth = 0;
@@ -791,6 +961,15 @@ int depth_to_rows(int depth)
     return(0);	/* ?? */
 }
 
+static void
+print_command(int index, int arg)
+{
+  char buf[16];
+  const commands_t *cmd = &(pcl_commands[index]);
+  (void) snprintf(buf, 15, "%s%d%c", cmd->initial_command, arg, cmd->final_command);
+  fprintf(stderr, "%-8s (%s): ", buf, pcl_commands[index].description);
+}
+
 /*
  * Main
  */
@@ -802,11 +981,14 @@ int main(int argc, char *argv[])
     command_t command;
     int i, j;				/* Loop/general variables */
     int image_row_counter = -1;		/* Count of current row */
+    int total_image_rows = 0;		/* All rows seen */
     int current_data_row = -1;		/* Count of data rows received for this output row */
     int expected_data_rows_per_row = -1;
 					/* Expected no of data rows per output row */
     image_t image_data;			/* Data concerning image */
     long filepos = -1;
+    int wrote_header = 0;
+    int state_is_clean = 1;
 
 /*
  * Holders for the decoded lines
@@ -837,6 +1019,8 @@ int main(int argc, char *argv[])
     output_data.buffer_length = 0;
     output_data.active_length = 0;
     output_data.output_depth = 0;
+    output_data.input_depth = 1;
+    output_data.pixels_depth = 1;
 
     received_rows = NULL;
 
@@ -882,9 +1066,8 @@ int main(int argc, char *argv[])
     while (1) {
 	pcl_read_command();
 	if (eof == 1) {
-/* #ifdef DEBUG */
-	    fprintf(stderr, "EOF while reading command.\n");
-/* #endif */
+	    if (! state_is_clean)
+		fprintf(stderr, "EOF while reading command.\n");
 	    (void) fclose(read_fd);
 	    (void) fclose(write_fd);
 	    exit(EXIT_SUCCESS);
@@ -903,6 +1086,7 @@ int main(int argc, char *argv[])
 	}
 	else {
 	    command = pcl_commands[command_index].command;
+	    state_is_clean = pcl_commands[command_index].clean_state;
 	    if (pcl_commands[command_index].has_data == 1) {
 
 /* Read the data into data_buffer */
@@ -912,7 +1096,7 @@ int main(int argc, char *argv[])
 #endif
 
 		if (numeric_arg > MAX_DATA) {
-		    fprintf(stderr, "ERROR: Too much data (%d), increase MAX_DATA!\n", numeric_arg);
+		    fprintf(stderr, "ERROR: Too much data (%d), increase MAX_DATA (%d)!\n", numeric_arg, MAX_DATA);
 		    exit(EXIT_FAILURE);
 		}
 
@@ -937,16 +1121,19 @@ int main(int argc, char *argv[])
 	    }
 	    switch(command) {
 	    case PCL_RESET :
-		fprintf(stderr, "%s\n", pcl_commands[command_index].description);
+		print_command(command_index, numeric_arg);
+		fprintf(stderr, "\n");
 		pcl_reset(&image_data);
 		break;
 
 	    case PCL_RESET_MARGINS :
-		fprintf(stderr, "%s\n", pcl_commands[command_index].description);
+		print_command(command_index, numeric_arg);
+		fprintf(stderr, "\n");
 		break;
 
 	    case PCL_START_RASTER :
-		fprintf(stderr, "%s\n", pcl_commands[command_index].description);
+		print_command(command_index, numeric_arg);
+		fprintf(stderr, "\n");
 
 /* Make sure we have all the stuff needed to work out what we are going
    to write out. */
@@ -984,8 +1171,9 @@ int main(int argc, char *argv[])
 		    fprintf(stderr, "WARNING: Light magenta dithers not yet handled.\n");
 		}
 
-		if ((image_data.compression_type != PCL_COMPRESSION_NONE) &&
-			(image_data.compression_type != PCL_COMPRESSION_TIFF)) {
+		if (image_data.compression_type != PCL_COMPRESSION_NONE &&
+		    image_data.compression_type != PCL_COMPRESSION_TIFF &&
+		    image_data.compression_type != PCL_COMPRESSION_DELTA) {
 		    fprintf(stderr,
 			"Sorry, only 'no compression' or 'tiff compression' handled.\n");
 		    i++;
@@ -997,22 +1185,25 @@ int main(int argc, char *argv[])
 		}
 
 		if (skip_output == 0) {
-		    if (image_data.colour_type == PCL_MONO)
-			(void) fputs("P5\n", write_fd);	/* Raw, Grey */
-		    else
-			(void) fputs("P6\n", write_fd);	/* Raw, RGB */
+		    if (! wrote_header) {
+			if (image_data.colour_type == PCL_MONO &&
+			    image_data.pixel_type == PCL_MONO)
+			    (void) fputs("P5\n", write_fd);	/* Raw, Grey */
+			else
+			    (void) fputs("P6\n", write_fd);	/* Raw, RGB */
 
-		    (void) fputs("# Written by pclunprint.\n", write_fd);
+			(void) fputs("# Written by pclunprint.\n", write_fd);
 
-/*
- * Remember the file position where we wrote the image width and height
- * (you don't want to know why!)
- */
+    /*
+     * Remember the file position where we wrote the image width and height
+     * (you don't want to know why!)
+     */
 
-		    filepos = ftell(write_fd);
+			filepos = ftell(write_fd);
 
-		    fprintf(write_fd, "%10d %10d\n", image_data.image_width,
-			image_data.image_height);
+			fprintf(write_fd, "%10d %10d\n", image_data.image_width,
+			    image_data.image_height);
+		    }
 
 /*
  * Write the depth of the image
@@ -1022,7 +1213,14 @@ int main(int argc, char *argv[])
 			output_data.output_depth = image_data.black_depth - 1;
 		    else
 			output_data.output_depth = image_data.cyan_depth - 1;
-		    fprintf(write_fd, "%d\n", output_data.output_depth);
+		    if (! wrote_header) {
+			if (output_data.pixels_depth > 1)
+			    fprintf(write_fd, "%d\n", 255);
+			else
+			    fprintf(write_fd, "%d\n", output_data.output_depth);
+		    }
+		    wrote_header = 1;
+
 
 		    image_row_counter = 0;
 		    current_data_row = 0;
@@ -1041,39 +1239,39 @@ int main(int argc, char *argv[])
 		    output_data.buffer_length = (image_data.image_width + 7) / 8;
 
 		    if (output_data.black_data_rows_per_row != 0) {
-			output_data.black_bufs = stp_malloc(output_data.black_data_rows_per_row * sizeof (char *));
+			output_data.black_bufs = stp_zalloc(output_data.black_data_rows_per_row * sizeof (char *));
 			for (i=0; i < output_data.black_data_rows_per_row; i++) {
-			    output_data.black_bufs[i] = stp_malloc(output_data.buffer_length * sizeof (char));
+			    output_data.black_bufs[i] = stp_zalloc(output_data.buffer_length * sizeof (char) * output_data.input_depth * output_data.pixels_depth);
 			}
 		    }
 		    if (output_data.cyan_data_rows_per_row != 0) {
-			output_data.cyan_bufs = stp_malloc(output_data.cyan_data_rows_per_row * sizeof (char *));
+			output_data.cyan_bufs = stp_zalloc(output_data.cyan_data_rows_per_row * sizeof (char *));
 			for (i=0; i < output_data.cyan_data_rows_per_row; i++) {
-			    output_data.cyan_bufs[i] = stp_malloc(output_data.buffer_length * sizeof (char));
+			    output_data.cyan_bufs[i] = stp_zalloc(output_data.buffer_length * sizeof (char) * output_data.input_depth * output_data.pixels_depth);
 			}
 		    }
 		    if (output_data.magenta_data_rows_per_row != 0) {
-			output_data.magenta_bufs = stp_malloc(output_data.magenta_data_rows_per_row * sizeof (char *));
+			output_data.magenta_bufs = stp_zalloc(output_data.magenta_data_rows_per_row * sizeof (char *));
 			for (i=0; i < output_data.magenta_data_rows_per_row; i++) {
-			    output_data.magenta_bufs[i] = stp_malloc(output_data.buffer_length * sizeof (char));
+			    output_data.magenta_bufs[i] = stp_zalloc(output_data.buffer_length * sizeof (char) * output_data.input_depth * output_data.pixels_depth);
 			}
 		    }
 		    if (output_data.yellow_data_rows_per_row != 0) {
-			output_data.yellow_bufs = stp_malloc(output_data.yellow_data_rows_per_row * sizeof (char *));
+			output_data.yellow_bufs = stp_zalloc(output_data.yellow_data_rows_per_row * sizeof (char *));
 			for (i=0; i < output_data.yellow_data_rows_per_row; i++) {
-			    output_data.yellow_bufs[i] = stp_malloc(output_data.buffer_length * sizeof (char));
+			    output_data.yellow_bufs[i] = stp_zalloc(output_data.buffer_length * sizeof (char) * output_data.input_depth * output_data.pixels_depth);
 			}
 		    }
 		    if (output_data.lcyan_data_rows_per_row != 0) {
-			output_data.lcyan_bufs = stp_malloc(output_data.lcyan_data_rows_per_row * sizeof (char *));
+			output_data.lcyan_bufs = stp_zalloc(output_data.lcyan_data_rows_per_row * sizeof (char *));
 			for (i=0; i < output_data.lcyan_data_rows_per_row; i++) {
-			     output_data.lcyan_bufs[i] = stp_malloc(output_data.buffer_length * sizeof (char));
+			     output_data.lcyan_bufs[i] = stp_zalloc(output_data.buffer_length * sizeof (char) * output_data.input_depth * output_data.pixels_depth);
 			}
 		    }
 		    if (output_data.lmagenta_data_rows_per_row != 0) {
-			output_data.lmagenta_bufs = stp_malloc(output_data.lmagenta_data_rows_per_row * sizeof (char *));
+			output_data.lmagenta_bufs = stp_zalloc(output_data.lmagenta_data_rows_per_row * sizeof (char *));
 			for (i=0; i < output_data.lmagenta_data_rows_per_row; i++) {
-			    output_data.lmagenta_bufs[i] = stp_malloc(output_data.buffer_length * sizeof (char));
+			    output_data.lmagenta_bufs[i] = stp_zalloc(output_data.buffer_length * sizeof (char) * output_data.input_depth * output_data.pixels_depth);
 			}
 		    }
 
@@ -1106,7 +1304,7 @@ int main(int argc, char *argv[])
 
 	    case PCL_END_RASTER :
 	    case PCL_END_COLOUR_RASTER :
-		fprintf(stderr, "%s\n", pcl_commands[command_index].description);
+		print_command(command_index, numeric_arg);
 
 		if (skip_output == 0) {
 
@@ -1118,9 +1316,10 @@ int main(int argc, char *argv[])
 
 		    if (image_data.image_height == -1) {
 			image_data.image_height = image_row_counter;
+			total_image_rows += image_row_counter;
 			if (fseek(write_fd, filepos, SEEK_SET) != -1) {
 			    fprintf(write_fd, "%10d %10d\n", image_data.image_width,
-				image_data.image_height);
+				total_image_rows);
 			    fseek(write_fd, 0L, SEEK_END);
 			}
 		    }
@@ -1129,7 +1328,8 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "ERROR: Row count mismatch. Expected %d rows, got %d rows.\n",
 			    image_data.image_height, image_row_counter);
 		    else
-			fprintf(stderr, "\t%d rows processed.\n", image_row_counter);
+			fprintf(stderr, "\t%d rows processed, max %d.\n",
+				image_row_counter, max_data_len);
 
 		    image_data.image_height = -1;
 		    image_row_counter = -1;
@@ -1187,8 +1387,13 @@ int main(int argc, char *argv[])
 		}
 		break;
 
+	    case PCL_SET_VMI :
+		print_command(command_index, numeric_arg);
+		fprintf(stderr, "\n");
+		break;
+
 	    case PCL_MEDIA_SIZE :
-		fprintf(stderr, "%s: ", pcl_commands[command_index].description);
+		print_command(command_index, numeric_arg);
 		switch (numeric_arg) {
 		case 2 :
 		    fprintf(stderr, "Letter\n");
@@ -1215,7 +1420,7 @@ int main(int argc, char *argv[])
 		break;
 
 	    case PCL_MEDIA_TYPE :
-		fprintf(stderr, "%s: ", pcl_commands[command_index].description);
+		print_command(command_index, numeric_arg);
 		switch (numeric_arg) {
 		case 0 :
 		    fprintf(stderr, "Plain\n");
@@ -1245,7 +1450,7 @@ int main(int argc, char *argv[])
 		break;
 
 	    case PCL_MEDIA_SOURCE :
-		fprintf(stderr, "%s: ", pcl_commands[command_index].description);
+		print_command(command_index, numeric_arg);
 		switch (numeric_arg) {
 		case -2 :
 		    fprintf(stderr, "FEED CURRENT\n");
@@ -1281,7 +1486,7 @@ int main(int argc, char *argv[])
 		break;
 
 	    case PCL_SHINGLING :
-		fprintf(stderr, "%s: ", pcl_commands[command_index].description);
+		print_command(command_index, numeric_arg);
 		switch (numeric_arg) {
 		case 0 :
 		    fprintf(stderr, "None\n");
@@ -1299,7 +1504,7 @@ int main(int argc, char *argv[])
 		break;
 
 	    case PCL_RASTERGRAPHICS_QUALITY :
-		fprintf(stderr, "%s: ", pcl_commands[command_index].description);
+		print_command(command_index, numeric_arg);
 		switch (numeric_arg) {
 		case 0 :
 		    fprintf(stderr, "(set by printer controls)\n");
@@ -1316,7 +1521,7 @@ int main(int argc, char *argv[])
 		break;
 
 	    case PCL_DEPLETION :
-		fprintf(stderr, "%s: ", pcl_commands[command_index].description);
+		print_command(command_index, numeric_arg);
 		switch (numeric_arg) {
 		case 1 :
 		    fprintf(stderr, "None\n");
@@ -1337,7 +1542,7 @@ int main(int argc, char *argv[])
 		break;
 
 	    case PCL_PRINT_QUALITY :
-		fprintf(stderr, "%s: ", pcl_commands[command_index].description);
+		print_command(command_index, numeric_arg);
 		switch (numeric_arg) {
 		case -1 :
 		    fprintf(stderr, "Draft\n");
@@ -1355,7 +1560,7 @@ int main(int argc, char *argv[])
 		break;
 
 	    case PCL_RELATIVE_VERTICAL_PIXEL_MOVEMENT :
-		fprintf(stderr, "%s: %d\n", pcl_commands[command_index].description, numeric_arg);
+		print_command(command_index, numeric_arg);
 
 		if (skip_output == 0) {
 
@@ -1371,21 +1576,27 @@ int main(int argc, char *argv[])
 
 		    for (i=0; i<expected_data_rows_per_row; i++)
 		    {
-			memset(received_rows[i], 0, (size_t) output_data.buffer_length * sizeof(char));
+			memset(received_rows[i], 0, (size_t) output_data.buffer_length * sizeof(char) * output_data.output_depth);
 		    }
 		    for (i=0; i<numeric_arg; i++)
 		    {
-			if (image_data.colour_type == PCL_MONO)
-			    write_grey(&output_data, &image_data);
-			else
+			if (image_data.colour_type == PCL_MONO) {
+			    if (image_data.pixel_type == PCL_MONO) {
+				write_grey(&output_data, &image_data);
+			    } else {
+				write_pixel(&output_data, &image_data);
+			    }
+			} else {
 			    write_colour(&output_data, &image_data);
+			}
 			image_row_counter++;
 		    }
 		}
+		fprintf(stderr, "\n");
 		break;
 
 	    case PCL_DUPLEX :
-		fprintf(stderr, "%s: ", pcl_commands[command_index].description);
+		print_command(command_index, numeric_arg);
 		switch (numeric_arg) {
 		case 0 :
 		    fprintf(stderr, "None\n");
@@ -1402,6 +1613,93 @@ int main(int argc, char *argv[])
 		}
 		break;
 
+	    case PCL_DRIVER_CONFIG :
+		print_command(command_index, numeric_arg);
+		fprintf(stderr, "(ignored)");
+		fprintf(stderr, " Data: ");
+		for (i=0; i < numeric_arg; i++) {
+		    fprintf(stderr, "%02x ", (unsigned char) data_buffer[i]);
+		}
+		fprintf(stderr, "\n");
+		fprintf(stderr, "         Device: ");
+		switch (data_buffer[0]) {
+		case 6:
+		  fprintf(stderr, "Color Laser Printer\n");
+		  break;
+		default:
+		  fprintf(stderr, "Unknown\n");
+		  break;
+		}
+		fprintf(stderr, "         Function: ");
+		switch (data_buffer[1]) {
+		case 0:
+		  fprintf(stderr, "Lightness %d\n", data_buffer[2]);
+		  break;
+		case 1:
+		  fprintf(stderr, "Saturation %d\n", data_buffer[2]);
+		  break;
+		case 3:
+		  fprintf(stderr, "Scaling Algorithm: ");
+		  switch (data_buffer[2]) {
+		  case 0:
+		    fprintf(stderr, "Pixel Replication\n");
+		    break;
+		  case 1:
+		    fprintf(stderr, "Bilinear Interpolation\n");
+		    break;
+		  case 2:
+		    fprintf(stderr, "Modified Bilinear Interpolation\n");
+		    break;
+		  default:
+		    fprintf(stderr, "Unknown\n");
+		  }
+		  break;
+		case 4:
+		  fprintf(stderr, "Color Treatment: ");
+		  switch (data_buffer[2]) {
+		  case 0:
+		    fprintf(stderr, "No Adjustment\n");
+		    break;
+		  case 1:
+		    fprintf(stderr, "Process Blue\n");
+		    break;
+		  case 2:
+		    fprintf(stderr, "Vivid Graphics\n");
+		    break;
+		  case 3:
+		    fprintf(stderr, "Transparency\n");
+		    break;
+		  case 4:
+		    fprintf(stderr, "Out of Gamut\n");
+		    break;
+		  case 5:
+		    fprintf(stderr, "CIE Lab Match\n");
+		    break;
+		  case 6:
+		    fprintf(stderr, "Screen Match\n");
+		    break;
+		  default:
+		    fprintf(stderr, "Unknown\n");
+		  }
+		  break;
+		case 5:
+		  fprintf(stderr, "Download Color Map: ");
+		  switch (data_buffer[2]) {
+		  case 1:
+		    fprintf(stderr, "CMY Color Space\n");
+		    break;
+		  case 3:
+		    fprintf(stderr, "CIE Lab Color Space\n");
+		    break;
+		  default:
+		    fprintf(stderr, "Unknown\n");
+		  }
+		  break;
+		default:
+		  fprintf(stderr, "Unknown\n");
+		  break;
+		}
+		break;
 	    case PCL_PERF_SKIP :
 	    case PCL_TOP_MARGIN :
 	    case PCL_RESOLUTION :
@@ -1412,12 +1710,10 @@ int main(int argc, char *argv[])
 	    case PCL_PALETTE_CONFIGURATION :
 	    case PCL_UNIT_OF_MEASURE :
 	    case PCL_GRAY_BALANCE :
-	    case PCL_DRIVER_CONFIG :
 	    case PCL_LPI :
 	    case PCL_CPI :
 	    case PCL_PAGE_LENGTH :
 	    case PCL_NUM_COPIES :
-	    case RTL_CONFIGURE :
 	    case PCL_ENTER_PCL :
 	    case PCL_NEGATIVE_MOTION :
 	    case PCL_JOB_SEPARATION :
@@ -1427,7 +1723,8 @@ int main(int argc, char *argv[])
 	    case PCL_LEFT_MARGIN :
 	    case PCL_RIGHT_MARGIN :
 	    case PCL_TEXT_LENGTH :
-		fprintf(stderr, "%s: %d (ignored)", pcl_commands[command_index].description, numeric_arg);
+		print_command(command_index, numeric_arg);
+		fprintf(stderr, "(ignored)");
 		if (pcl_commands[command_index].has_data == 1) {
 		    fprintf(stderr, " Data: ");
 		    for (i=0; i < numeric_arg; i++) {
@@ -1438,7 +1735,7 @@ int main(int argc, char *argv[])
 		break;
 
 	    case PCL_COLOURTYPE :
-		fprintf(stderr, "%s: ", pcl_commands[command_index].description);
+		print_command(command_index, numeric_arg);
 		image_data.colour_type = -numeric_arg;
 		switch (image_data.colour_type) {
 		    case PCL_MONO :
@@ -1465,7 +1762,7 @@ int main(int argc, char *argv[])
 		break;
 
 	    case PCL_COMPRESSIONTYPE :
-		fprintf(stderr, "%s: ", pcl_commands[command_index].description);
+		print_command(command_index, numeric_arg);
 		image_data.compression_type = numeric_arg;
 		switch (image_data.compression_type) {
 		    case PCL_COMPRESSION_NONE :
@@ -1477,6 +1774,12 @@ int main(int argc, char *argv[])
 		    case PCL_COMPRESSION_TIFF :
 			fprintf(stderr, "TIFF\n");
 			break;
+		    case PCL_COMPRESSION_DELTA :
+			fprintf(stderr, "DELTA\n");
+			break;
+		    case PCL_COMPRESSION_ADAPTIVE :
+			fprintf(stderr, "ADAPTIVE (mono only)\n");
+			break;
 		    case PCL_COMPRESSION_CRDR :
 			fprintf(stderr, "Compressed Row Delta Replacement\n");
 			break;
@@ -1487,18 +1790,70 @@ int main(int argc, char *argv[])
 		break;
 
 	    case PCL_RASTER_WIDTH :
-		fprintf(stderr, "%s: %d\n", pcl_commands[command_index].description, numeric_arg);
+		print_command(command_index, numeric_arg);
+		fprintf(stderr, "\n");
 		image_data.image_width = numeric_arg;
 		break;
 
 	    case PCL_RASTER_HEIGHT :
-		fprintf(stderr, "%s: %d\n", pcl_commands[command_index].description, numeric_arg);
+		print_command(command_index, numeric_arg);
+		fprintf(stderr, "\n");
 		image_data.image_height = numeric_arg;
 		break;
 
+	    case PCL_SEED_ROW_SOURCE :
+		print_command(command_index, numeric_arg);
+		fprintf(stderr, "\n");
+		break;
+
+	    case PCL_RTL_CONFIGURE :
+		print_command(command_index, numeric_arg);
+		for (i = 0; i < numeric_arg; i++)
+		  fprintf(stderr, " %02x", (unsigned char) data_buffer[i]);
+		fprintf(stderr, "\n");
+		fprintf(stderr, "         Color Space: ");
+		switch (data_buffer[0]) {
+		case 0:
+		  fprintf(stderr, "DeviceRGB\n");
+		  image_data.pixel_type = PCL_RGB;
+		  break;
+		case 1:
+		  fprintf(stderr, "DeviceCMY\n");
+		  image_data.pixel_type = PCL_CMY;
+		  break;
+		case 2:
+		  fprintf(stderr, "sRGB\n");
+		  image_data.pixel_type = PCL_RGB;
+		  break;
+		default:
+		  fprintf(stderr, "Unknown\n");
+		  break;
+		}
+		fprintf(stderr, "         Encoding: ");
+		switch (data_buffer[1]) {
+		case 0:
+		case 1:
+		  fprintf(stderr, "Indexed by %s, %d bits/index",
+			  data_buffer[1] == 0 ? "Plane" : "Pixel",
+			  data_buffer[2]);
+		  output_data.input_depth = data_buffer[2];
+		  break;
+		case 2:
+		case 3:
+		  fprintf(stderr, "Direct by %s, depth %d\n",
+			  data_buffer[1] == 2 ? "Plane" : "Pixel",
+			  data_buffer[3]);
+		  output_data.pixels_depth = 3;
+		  output_data.input_depth = data_buffer[3];
+		  break;
+		default:
+		  fprintf(stderr, "Unknown\n");
+		  break;
+		}
+	      break;
+
 	    case PCL_CONFIGURE :
-		fprintf(stderr, "%s (size=%d)\n", pcl_commands[command_index].description,
-		    numeric_arg);
+		print_command(command_index, numeric_arg);
 		fprintf(stderr, "\tFormat: %d\n", data_buffer[0]);
 		if (data_buffer[0] == 2) {
 
@@ -1607,7 +1962,8 @@ int main(int argc, char *argv[])
 	    case PCL_DATA :
 	    case PCL_DATA_LAST :
 		if (skip_output == 1) {
-		    fprintf(stderr, "%s, length: %d\n", pcl_commands[command_index].description, numeric_arg);
+		    print_command(command_index, numeric_arg);
+		    fprintf(stderr, "\n");
 		}
 		else {
 
@@ -1618,6 +1974,8 @@ int main(int argc, char *argv[])
 		    if (expected_data_rows_per_row == -1)
 			fprintf(stderr, "ERROR: raster data without start raster!\n");
 
+		    if (numeric_arg > max_data_len)
+		        max_data_len = numeric_arg;
 /*
  * The last flag indicates that this is the end of the planes for a row
  * so we check it against the number of planes we have seen and are
@@ -1637,19 +1995,38 @@ int main(int argc, char *argv[])
 /*
  * Accumulate the data rows for each output row,then write the image.
  */
+/*
+		    fprintf(stderr, ">>>>>Current %d %p %p %p\n",
+			    current_data_row, received_rows,
+			    data_buffer, received_rows[current_data_row]);
+*/
 
 		    if (image_data.compression_type == PCL_COMPRESSION_NONE) {
 			memcpy(received_rows[current_data_row], &data_buffer, (size_t) numeric_arg);
-			output_data.active_length = numeric_arg;
+			output_data.active_length = numeric_arg * output_data.input_depth * output_data.pixels_depth;
 		    }
-		    else
-			output_data.active_length = decode_tiff(data_buffer, numeric_arg, received_rows[current_data_row], output_data.buffer_length);
+		    else if (image_data.compression_type == PCL_COMPRESSION_TIFF) {
+			output_data.active_length = decode_tiff(data_buffer, numeric_arg, received_rows[current_data_row], output_data.buffer_length * output_data.input_depth * output_data.pixels_depth);
 
+		    }
+		    else if (image_data.compression_type == PCL_COMPRESSION_DELTA) {
+			output_data.active_length = decode_delta(data_buffer, numeric_arg, received_rows[current_data_row], output_data.buffer_length * output_data.input_depth * output_data.pixels_depth);
+		    }
+		    /*
+		    fprintf(stderr, "<<<<<Current %d %p %p %p\n",
+			    current_data_row, received_rows,
+			    data_buffer, received_rows[current_data_row]);
+		    */
 		    if (command == PCL_DATA_LAST) {
-			if (image_data.colour_type == PCL_MONO)
-			    write_grey(&output_data, &image_data);
-			else
+			if (image_data.colour_type == PCL_MONO) {
+			    if (image_data.pixel_type == PCL_MONO) {
+				write_grey(&output_data, &image_data);
+			    } else {
+				write_pixel(&output_data, &image_data);
+			    }
+			} else {
 			    write_colour(&output_data, &image_data);
+			}
 			current_data_row = 0;
 			image_row_counter++;
 		    }
@@ -1661,7 +2038,7 @@ int main(int argc, char *argv[])
 	    case PCL_ENTER_HPGL2 :
 	    case PCL_ENTER_PJL : {
 		    int c;
-		    fprintf(stderr, "%s %d\n", pcl_commands[command_index].description, numeric_arg);
+		    print_command(command_index, numeric_arg);
 
 /*
  * This is a special command. Read up to the next ESC and output it.
@@ -1690,7 +2067,7 @@ int main(int argc, char *argv[])
 		break;
 
 	    case PCL_PAGE_ORIENTATION :
-		fprintf(stderr, "%s: ", pcl_commands[command_index].description);
+		print_command(command_index, numeric_arg);
 		switch (numeric_arg) {
 		case 0 :
 		    fprintf(stderr, "Portrait");
@@ -1712,7 +2089,7 @@ int main(int argc, char *argv[])
 		break;
 
 	    case PCL_MEDIA_SIDE :
-		fprintf(stderr, "%s: ", pcl_commands[command_index].description);
+		print_command(command_index, numeric_arg);
 		switch (numeric_arg) {
 		case 0 :
 		    fprintf(stderr, "Next side");
@@ -1731,7 +2108,7 @@ int main(int argc, char *argv[])
 		break;
 
 	    case PCL_MEDIA_DEST :
-		fprintf(stderr, "%s: ", pcl_commands[command_index].description);
+		print_command(command_index, numeric_arg);
 		switch (numeric_arg) {
 		case 1 :
 		    fprintf(stderr, "Upper Output bin");
@@ -1743,6 +2120,39 @@ int main(int argc, char *argv[])
 		    fprintf(stderr, "Unknown (%d)", numeric_arg);
 		    break;
 		}
+		fprintf(stderr, " (ignored)\n");
+		break;
+
+	    case PCL_RASTER_RENDER :
+		print_command(command_index, numeric_arg);
+		switch (numeric_arg) {
+		case 0 :
+		    fprintf(stderr, "Continuous tone detail (high lpi)");
+		    break;
+		case 3 :
+		    fprintf(stderr, "Device-best dither");
+		    break;
+		case 15 :
+		    fprintf(stderr, "Continuous tone smooth (high lpi)");
+		    break;
+		case 18 :
+		    fprintf(stderr, "Continuous tone basic (low lpi)");
+		    break;
+		default :
+		    fprintf(stderr, "Unknown (%d)", numeric_arg);
+		    break;
+		}
+		fprintf(stderr, " (ignored)\n");
+	      break;
+	    case PCL_COLOR_COMPONENT_1 :
+	    case PCL_COLOR_COMPONENT_2 :
+	    case PCL_COLOR_COMPONENT_3 :
+	    case PCL_ASSIGN_COLOR_INDEX :
+		print_command(command_index, numeric_arg);
+		fprintf(stderr, " (ignored)\n");
+		break;
+	    case PCL_SET_FOREGROUND_COLOR :
+		print_command(command_index, numeric_arg);
 		fprintf(stderr, " (ignored)\n");
 		break;
 
