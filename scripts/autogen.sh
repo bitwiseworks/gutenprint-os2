@@ -29,6 +29,9 @@ mkdir m4
 # shellcheck disable=SC2006,SC2154
 test -f "$srcdir/configure.ac" && sed "s/XXXRELEASE_DATE=XXX/RELEASE_DATE=\"`date '+%d %b %Y'`\"/" "$srcdir/m4extra/stp_release.m4.in" > "$srcdir/m4/stp_release.m4"
 
+# copy our po file over, as the one from gettext original misses some fixes
+cp /@unixroot/usr/share/aclocal/po.m4 $srcdir/m4
+
 # Make sure all of our auto* bits are up to date.
 autoreconf -ivf
 
