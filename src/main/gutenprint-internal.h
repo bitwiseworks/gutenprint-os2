@@ -42,8 +42,8 @@ extern "C" {
 #include <time.h>
 
 #ifdef __OS2__
-#define IS_ROOT(file) (((*(file) >= 'A' && *(file) <= 'Z') || \
-                       (*(file) >= 'a' && *(file) <= 'z')) && (file)[1] == ':') )
+#define IS_ROOT(file) (((*file >= 'A' && *file <= 'Z') || \
+                        (*file >= 'a' && *file <= 'z')) && file[1] == ':')
 #endif
 
 /**
