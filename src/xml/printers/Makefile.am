@@ -40,7 +40,7 @@ noinst_PROGRAMS = check_duplicate_printers.test
 check_duplicate_printers_test_SOURCES = check_duplicate_printers.test.c
 check_duplicate_printers_test_LDADD = $(GUTENPRINT_LIBS)
 
-xml-stamp: $(pkgxmldata_DATA) Makefile.am check_duplicate_printers.test
+xml-stamp: $(pkgxmldata_DATA) Makefile.am check_duplicate_printers.test$(EXEEXT)
 	$(AM_TESTS_ENVIRONMENT) ./check_duplicate_printers.test
 	-rm -f $@ $@.tmp
 	touch $@.tmp

@@ -254,67 +254,67 @@ ppd-catalog: ppd-catalog-clean
 	  $(INSTALL_DATA) $$file "$(PPD_DIR)catalog/$$lang/gutenprint_$$lang.po"; \
 	done
 
-ppd-nonls: cups-genppd.@GUTENPRINT_RELEASE_VERSION@
+ppd-nonls: cups-genppd.@GUTENPRINT_RELEASE_VERSION@$(EXEEXT)
 	@echo "Non-localized PPDs:"
 	$(MKDIR_P) $(PPD_DIR)/C
 	$(MAKE) ppd-catalog-clean
 	LC_ALL= LANG= LANGUAGE= $(STP_NONLS_ENV) ./cups-genppd.@GUTENPRINT_RELEASE_VERSION@ -l C -p $(PPD_DIR)/C @WHICH_PPDS@ $(EXTRA_GENPPD_OPTS)
 
-ppd-nonls-a: cups-genppd.@GUTENPRINT_RELEASE_VERSION@
+ppd-nonls-a: cups-genppd.@GUTENPRINT_RELEASE_VERSION@$(EXEEXT)
 	@echo "Non-localized PPDs (all):"
 	$(MKDIR_P) $(PPD_DIR)/C
 	$(MAKE) ppd-catalog-clean
 	LC_ALL= LANG= LANGUAGE= $(STP_NONLS_ENV) ./cups-genppd.@GUTENPRINT_RELEASE_VERSION@ -l C -p $(PPD_DIR)/C -a $(EXTRA_GENPPD_OPTS)
 
-ppd-nonls-s: cups-genppd.@GUTENPRINT_RELEASE_VERSION@
+ppd-nonls-s: cups-genppd.@GUTENPRINT_RELEASE_VERSION@$(EXEEXT)
 	@echo "Non-localized PPDs (simplified):"
 	$(MKDIR_P) $(PPD_DIR)/C
 	$(MAKE) ppd-catalog-clean
 	LC_ALL= LANG= LANGUAGE= $(STP_NONLS_ENV) ./cups-genppd.@GUTENPRINT_RELEASE_VERSION@ -l C -p $(PPD_DIR)/C -s $(EXTRA_GENPPD_OPTS)
 
-ppd-global: cups-genppd.@GUTENPRINT_RELEASE_VERSION@
+ppd-global: cups-genppd.@GUTENPRINT_RELEASE_VERSION@$(EXEEXT)
 	@echo "Global PPDs:"
 	$(MKDIR_P) $(PPD_DIR)/Global
 	$(MAKE) ppd-catalog
 	LC_ALL= LANG= LANGUAGE= $(STP_ENV) ./cups-genppd.@GUTENPRINT_RELEASE_VERSION@ -p $(PPD_DIR)/Global @WHICH_PPDS@ $(EXTRA_GENPPD_OPTS)
 	$(MAKE) ppd-catalog-clean
 
-ppd-global-a: cups-genppd.@GUTENPRINT_RELEASE_VERSION@
+ppd-global-a: cups-genppd.@GUTENPRINT_RELEASE_VERSION@$(EXEEXT)
 	@echo "Global PPDs (all):"
 	$(MKDIR_P) $(PPD_DIR)/Global
 	$(MAKE) ppd-catalog
 	LC_ALL= LANG= LANGUAGE= $(STP_ENV) ./cups-genppd.@GUTENPRINT_RELEASE_VERSION@ -p $(PPD_DIR)/Global -a $(EXTRA_GENPPD_OPTS)
 	$(MAKE) ppd-catalog-clean
 
-ppd-global-s: cups-genppd.@GUTENPRINT_RELEASE_VERSION@
+ppd-global-s: cups-genppd.@GUTENPRINT_RELEASE_VERSION@$(EXEEXT)
 	@echo "Global PPDs (simplified):"
 	$(MKDIR_P) $(PPD_DIR)/Global
 	$(MAKE) ppd-catalog
 	LC_ALL= LANG= LANGUAGE= $(STP_ENV) ./cups-genppd.@GUTENPRINT_RELEASE_VERSION@ -p $(PPD_DIR)/Global -s $(EXTRA_GENPPD_OPTS)
 	$(MAKE) ppd-catalog-clean
 
-ppd-global-ln: cups-genppd.@GUTENPRINT_RELEASE_VERSION@
+ppd-global-ln: cups-genppd.@GUTENPRINT_RELEASE_VERSION@$(EXEEXT)
 	@echo "Global PPDs (localized numbers for testing):"
 	$(MKDIR_P) $(PPD_DIR)/Global
 	$(MAKE) ppd-catalog
 	LC_ALL= LANG= LANGUAGE= $(STP_ENV) ./cups-genppd.@GUTENPRINT_RELEASE_VERSION@ -p $(PPD_DIR)/Global -N @WHICH_PPDS@ $(EXTRA_GENPPD_OPTS)
 	$(MAKE) ppd-catalog-clean
 
-ppd-global-ln-a: cups-genppd.@GUTENPRINT_RELEASE_VERSION@
+ppd-global-ln-a: cups-genppd.@GUTENPRINT_RELEASE_VERSION@$(EXEEXT)
 	@echo "Global PPDs (all, localized numbers for testing):"
 	$(MKDIR_P) $(PPD_DIR)/Global
 	$(MAKE) ppd-catalog
 	LC_ALL= LANG= LANGUAGE= $(STP_ENV) ./cups-genppd.@GUTENPRINT_RELEASE_VERSION@ -p $(PPD_DIR)/Global -N -a $(EXTRA_GENPPD_OPTS)
 	$(MAKE) ppd-catalog-clean
 
-ppd-global-ln-s: cups-genppd.@GUTENPRINT_RELEASE_VERSION@
+ppd-global-ln-s: cups-genppd.@GUTENPRINT_RELEASE_VERSION@$(EXEEXT)
 	@echo "Global PPDs (all, localized numbers for testing):"
 	$(MKDIR_P) $(PPD_DIR)/Global
 	$(MAKE) ppd-catalog
 	LC_ALL= LANG= LANGUAGE= $(STP_ENV) ./cups-genppd.@GUTENPRINT_RELEASE_VERSION@ -p $(PPD_DIR)/Global -N -s $(EXTRA_GENPPD_OPTS)
 	$(MAKE) ppd-catalog-clean
 
-ppd-nls: cups-genppd.@GUTENPRINT_RELEASE_VERSION@ ppd-nonls
+ppd-nls: cups-genppd.@GUTENPRINT_RELEASE_VERSION@$(EXEEXT) ppd-nonls
 	@echo "Localized PPD files:"
 	$(MKDIR_P) ppd
 	$(MAKE) ppd-catalog
@@ -325,7 +325,7 @@ ppd-nls: cups-genppd.@GUTENPRINT_RELEASE_VERSION@ ppd-nonls
 	done
 	$(MAKE) ppd-catalog-clean
 
-ppd-nls-a: cups-genppd.@GUTENPRINT_RELEASE_VERSION@ @WHICH_PPDS@ ppd-nonls
+ppd-nls-a: cups-genppd.@GUTENPRINT_RELEASE_VERSION@$(EXEEXT) ppd-nonls@WHICH_PPDS@
 	@echo "Localized PPD files (all):"
 	$(MKDIR_P) ppd
 	$(MAKE) ppd-catalog
@@ -336,7 +336,7 @@ ppd-nls-a: cups-genppd.@GUTENPRINT_RELEASE_VERSION@ @WHICH_PPDS@ ppd-nonls
 	done
 	$(MAKE) ppd-catalog-clean
 
-ppd-nls-s: cups-genppd.@GUTENPRINT_RELEASE_VERSION@ @WHICH_PPDS@ ppd-nonls
+ppd-nls-s: cups-genppd.@GUTENPRINT_RELEASE_VERSION@$(EXEEXT) ppd-nonls@WHICH_PPDS@
 	@echo "Localized PPD files (simplified):"
 	$(MKDIR_P) ppd
 	$(MAKE) ppd-catalog
