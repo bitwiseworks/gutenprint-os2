@@ -22,3 +22,8 @@ po/ChangeLog
 po/Makevars.template
 scripts/test-driver
 scripts/ylwrap
+ABOUT-NLS~
+po/Makefile.in.in~
+po/Makevars.template~
+po/Rules-quot~
+scripts/config.rpath~
